@@ -30,6 +30,7 @@ install_load(packages)
 
 ##VECTRONIC - PAIRED PRE FIRE - Code is the exact same as above, but for the pre-fire vecotornic deer dataframe
 collars <- read.csv(here::here("Publication_Data","Collars","Vectronic","VectronicPreFire.csv"))
+collars <- collars[complete.cases(collars$Longitude....),]
 head(collars)
 collars$TimeStamp <-collars$Date_Time1
 collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC")
@@ -507,12 +508,13 @@ sumdist/(tot$freq[1]/12)
 # Lotek Pre-fire Paired Movement Metrics
 ```{r}
 
-##LOTEK - DURING FIRE
 collars <- read.csv(here::here("Publication_Data","Collars","Lotek","LotekPreFire.csv"))
+collars <- collars[collars$AnimalID!='H1',]
+
+collars <- read.csv(here::here('Publication_Data','Collars', 'LotekPreFire-fix.csv'))
 collars <- collars[complete.cases(collars),]
 head(collars)
-collars$TimeStamp <-collars$Date_Time1
-collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC")
+collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M", origin = '1970-01-01', tz = "UTC")
 
 
 ##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
@@ -627,14 +629,14 @@ sumdist/(tot$freq[1]/24)
 
 ##LOTEK - DURING FIRE
 collars <- read.csv(here::here("Publication_Data","Collars","Lotek","LotekPostFire.csv"))
+collars <- collars[collars$AnimalID!='H1',]
 collars <- collars[complete.cases(collars),]
 head(collars)
-collars$TimeStamp <-collars$Date_Time1
-collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC")
+collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M", origin = '1970-01-01', tz = "UTC")
 
 
 ##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-xy <- collars[,c(10,9)]  ## get lat/long from data frame
+xy <- collars[,c(8,7)]  ## get lat/long from data frame
 coordinates(xy) <- c("Longitude", "Latitude")
 proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
 res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
