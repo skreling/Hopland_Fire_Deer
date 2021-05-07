@@ -15,23 +15,22 @@ library(openxlsx)
 ```{r}
 
 #Mean displacement during fire
-table <- read.csv(here::here("Publication_Data","Collars","Distances_During_Fire_Final.csv"))
-firedeer <- table[-c(2,6,7,12, 15),]
-mean(firedeer$Distance)#avg = 1256.931, min =263.5014, max=4401
+table <- read.csv(here::here("Publication_Data","Collars","Distances_During_Fire_QGIS.csv"))
+firedeer <- table[-c(2,7:8,14, 16),]
+mean(firedeer$Distance)#avg = 1155.114, min = 42, max=4401
+sd(firedeer$Distance)
 
-nonfire <- table[c(2,6,7,12, 15),]
-mean(nonfire$Distance) #293.3645
-
-fire <- as.numeric(firedeer$Distance)
-nfire <- as.numeric(nonfire$Distance)
+nonfire <- table[c(2,7:8,13, 16),]
+mean(nonfire$Distance) #253.57
+sd(nonfire$Distance)
 
 #not equal variances use welches t test
 var.test(firedeer$Distance, nonfire$Distance)
 
-t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE)
+t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE) #t = 2.901, df = 12.626, p-value = 0.01271
 
-range(nfire)
 ```
+
 # Movement Metrics
 ```{r}
 #Movement metrics

@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(tidyr)
 table <- read.csv(here::here("Publication_Data","Collars","Isopleth_Areas.csv"))
 table.wide <- table %>% pivot_wider(id_cols=Deer, names_from = Time, values_from = Area.km2.)
 

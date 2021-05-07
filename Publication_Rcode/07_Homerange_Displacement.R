@@ -36,7 +36,7 @@ doedist <- diag(distmatrixdoe)
 buckdist <- diag(distmatrixbuck)
 
 
-#ttests and averages
+#averages
 mean(doedist)#140.12
 mean(buckdist)#33.118
 sd(doedist)#67.442
@@ -44,55 +44,16 @@ sd(buckdist)#4.22
 
 
 #################################################
-#for deer outside the burn perimeter
-#vectronic collars - a5b, j5, h4, h5
-library(adehabitatHR) #mcp generation
-collars <- read.csv(here::here("Publication_Data","Collars","Vectronic","VectronicPreFire.csv"))
-head(collars)
-collars$TimeStamp <-collars$Date_Time
-collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "America/Los_Angeles")
+#Pre-fire
+collars <- read.csv(here::here("Publication_Data","Collars","deer-gps-prefire.csv"))
+
+#limit to deer outside of fire: 
+collars.out <- collars[c(collars$AnimalID=='A5b'|collars$AnimalID=='H4'|collars$AnimalID=='H5'|collars$AnimalID=='J5'|collars$AnimalID=='K4'),]
+
+
+collars.out$TimeStamp <- as.POSIXct((collars.out$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "America/Los_Angeles")
 ##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-collars.spdf<- SpatialPointsDataFrame(coords=as.data.frame(cbind(collars$Longitude, collars$Latitude)), data=collars, proj4string=CRS("+proj=longlat +datum=WGS84"))
-collars.spdf<-spTransform(collars.spdf,CRS("+proj=utm +zone=10 ellps=WGS84") )
-plot(collars.spdf)
-
-collars.mcppost <- mcp(collars.spdf[,"AnimalID"], percent=95, unin="m", unout="km2")
-plot(collars.mcppost, col=c(1:13))
-collarsOut <- collars.mcppost[collars.mcppost$id=="A5b"|collars.mcppost$id=="J5"|collars.mcppost$id=="H5"|collars.mcppost$id=="H4",]
-trueCentroids2 <- gCentroid(collarsOut, byid=TRUE)
-plot(trueCentroids2)
-VectronicDoesPre<-as.data.frame(trueCentroids2) #pre fire - outside vectronic does
-
-
-
-
-#post fire vectronic does outside
-collars <- read.csv(here::here("Publication_Data","Collars","Vectronic","VectronicPostFire.csv"))
-head(collars)
-collars$TimeStamp <-collars$Date_Time
-collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "America/Los_Angeles")
-##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-collars.spdf<- SpatialPointsDataFrame(coords=as.data.frame(cbind(collars$Longitude, collars$Latitude)), data=collars, proj4string=CRS("+proj=longlat +datum=WGS84"))
-collars.spdf<-spTransform(collars.spdf,CRS("+proj=utm +zone=10 ellps=WGS84") )
-plot(collars.spdf)
-
-collars.mcppost <- mcp(collars.spdf[,"AnimalID"], percent=95, unin="m", unout="km2")
-plot(collars.mcppost, col=c(1:13))
-collarsOut <- collars.mcppost[collars.mcppost$id=="A5b"|collars.mcppost$id=="J5"|collars.mcppost$id=="H5"|collars.mcppost$id=="H4",]
-trueCentroids2 <- gCentroid(collarsOut, byid=TRUE)
-plot(trueCentroids2)
-VectronicDoesPost<-as.data.frame(trueCentroids2) #pre fire - outside vectronic does
-
-
-
-
-#lotek pre fire does
-collars <- read.csv(here::here("Publication_Data","Collars","Lotek","LotekPreFire-fix.csv"))
-head(collars)
-collars$TimeStamp <-collars$Date_Time
-collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "America/Los_Angeles")
-##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-collars.spdf<- SpatialPointsDataFrame(coords=as.data.frame(cbind(collars$Longitude, collars$Latitude)), data=collars, proj4string=CRS("+proj=longlat +datum=WGS84"))
+collars.spdf<- SpatialPointsDataFrame(coords=as.data.frame(cbind(collars.out$Longitude, collars.out$Latitude)), data=collars.out, proj4string=CRS("+proj=longlat +datum=WGS84"))
 collars.spdf<-spTransform(collars.spdf,CRS("+proj=utm +zone=10 ellps=WGS84") )
 plot(collars.spdf)
 
@@ -100,16 +61,21 @@ collars.mcppost <- mcp(collars.spdf[,"AnimalID"], percent=95, unin="m", unout="k
 plot(collars.mcppost, col=c(1:13))
 trueCentroids2 <- gCentroid(collars.mcppost, byid=TRUE)
 plot(trueCentroids2)
-LotekDoesPre<-as.data.frame(trueCentroids2) #pre fire - outside vectronic does
+pre.out <- as.data.frame(trueCentroids2)# convert to dataframe
 
 
-#lotek pre fire does
-collars <- read.csv(here::here("Publication_Data","Collars","Lotek","LotekPostFire-fix.csv"))
-head(collars)
-collars$TimeStamp <-collars$Date_Time
-collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "America/Los_Angeles")
+
+
+#Post-fire
+collars <- read.csv(here::here("Publication_Data","Collars","deer-gps-postfire.csv"))
+
+#limit to deer outside of fire: 
+collars.out <- collars[c(collars$AnimalID=='A5b'|collars$AnimalID=='H4'|collars$AnimalID=='H5'|collars$AnimalID=='J5'|collars$AnimalID=='K4'),]
+
+
+collars.out$TimeStamp <- as.POSIXct((collars.out$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "America/Los_Angeles")
 ##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-collars.spdf<- SpatialPointsDataFrame(coords=as.data.frame(cbind(collars$Longitude, collars$Latitude)), data=collars, proj4string=CRS("+proj=longlat +datum=WGS84"))
+collars.spdf<- SpatialPointsDataFrame(coords=as.data.frame(cbind(collars.out$Longitude, collars.out$Latitude)), data=collars.out, proj4string=CRS("+proj=longlat +datum=WGS84"))
 collars.spdf<-spTransform(collars.spdf,CRS("+proj=utm +zone=10 ellps=WGS84") )
 plot(collars.spdf)
 
@@ -117,21 +83,15 @@ collars.mcppost <- mcp(collars.spdf[,"AnimalID"], percent=95, unin="m", unout="k
 plot(collars.mcppost, col=c(1:13))
 trueCentroids2 <- gCentroid(collars.mcppost, byid=TRUE)
 plot(trueCentroids2)
-LotekDoesPost<-as.data.frame(trueCentroids2) #pre fire - outside vectronic does
 
-#combine the dataframes
+post.out <- as.data.frame(trueCentroids2)
 
-OutPre <- rbind(LotekDoesPre, VectronicDoesPre)
-OutPre <- OutPre[-c(1:3),]
-
-OutPost <- rbind(LotekDoesPost, VectronicDoesPost)
-OutPost <- OutPost[-c(1:3),]
 
 ########################################
 #now we want to create distance matrices for outside does
 
 #creates distance between centroid matrix - we only want diagnol 
-distmatrixdoeOut <- proxy::dist(OutPre,OutPost , method="euclidean")
+distmatrixdoeOut <- proxy::dist(pre.out,post.out , method="euclidean")
 
 #extract just diagnol from matrix
 doeOUTdist <- diag(distmatrixdoeOut)
@@ -139,4 +99,4 @@ doeOUTdist <- diag(distmatrixdoeOut)
 #ttests and averages
 mean(doeOUTdist)#119.22
 sd(doeOUTdist)#108.37
-t.test(doedist, doeOUTdist, paired=F)
+t.test(doedist, doeOUTdist, paired=F) #t= 0.39774, df = 5.4646, p-value = 0.7059

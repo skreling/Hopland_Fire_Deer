@@ -24,16 +24,13 @@ install_load <- function(packages){
 install_load(packages)
 
 # tlocoh package on R CRAN is not compatible with newer versions of R, but exists in compatible form on another repo
-setRepositories() #Set to all
 installed.packages('tlocoh')
 library(tlocoh)
 ```
 
-# Vectronic Post Fire
+# Deer Pre Fire
 ```{r}
-toni <- read.csv(here::here("Publication_Data","Collars","Vectronic","VectronicPostFire.csv"))
-colnames(toni)[14]<-'Latitude'
-colnames(toni)[15]<-'Longitude'
+toni <- read.csv(here::here("Publication_Data","Collars","deer-gps-prefire.csv"))
 
 # Create Spatial Points Dataframe from lat/longs and project in UTM 10
 toni.sp.latlong<-(SpatialPoints(toni[,c("Longitude", "Latitude")], proj4string=CRS("+proj=longlat +ellps=WGS84")))
@@ -48,31 +45,58 @@ colnames(toni.mat.utm) <- c("x", "y")
 toni.localtime <- as.POSIXct(toni$TimeStamp, tz="America/Los_Angeles")
 
 # Create LoCoH isopleths
-toni.lxy <- xyt.lxy(xy=toni.mat.utm, dt=toni.localtime, tz= "America/Los_Angeles", id=toni$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE)
-plot(toni.lxy)
-lxy.plot.freq(toni.lxy, cp=T)
-toni.lxy <- lxy.nn.add(toni.lxy, s=0, k=25)
-summary(toni.lxy)
-toni.lhs <- lxy.lhs(toni.lxy, k=15, s=0)#could input krange here
-plot(toni.lhs, hulls=TRUE, figs.per.page=6)#Note if plot window is not large enough, this will not show up with no warning so increase plot window size
-toni.lhs <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE,figs.per.page=6) #Note if plot window is not large enough, this will not show up with no warning so increase plot window size
-toni.lhs <- lxy.lhs(toni.lxy, k = 15, s= 0) ##Chose 15 based on parameters in tutorial =  not swiss cheese, not crossing middle too much
-toni.lhs <-lhs.iso.add(toni.lhs)
-toni.lhsPre <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE, figs.per.page=1)
+toni.lxy <- xyt.lxy(xy=toni.mat.utm, dt=toni.localtime, tz= "America/Los_Angeles", id=toni$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE) #create a LoCoH-xy object
+toni.lxy <- lxy.nn.add(toni.lxy, s=0, k=25) #identifies nearest neighbors for a LoCoH-xy object
+toni.lhs <- lxy.lhs(toni.lxy, k=15, s=0) # Creates a LoCoH-hullset object 
+toni.lhs <- lhs.iso.add(toni.lhs) #Adds isopleths toa  LoCoH-hullset object
 
-#Animal IDs to plot in the id argument for this dataset : A5b, D3b, H2, H4, H5, I5, J1, J2, J3, J5, K1, K2, Q5
-plot(toni.lhs, iso=T, id = "K2", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
+#Animal IDs to plot in the id argument for this dataset : A4, A5b, D3b, F2, H2, H3, H4, H5, I5, J1, J2, J3, J5, K1, K2, K4, P4, Q5
+plot(toni.lhs, iso=T, id = "A5b", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
 
 
 ##This will export as shapefiles so you can get areas from the isopleth summaries (we'll be taking the 95%)
-toni.iso <- isopleths(toni.lhs)
-A5b.post.iso <- toni.iso[[1]]
-#writeOGR(A5b.post.iso, "A5bPost",dsn=here::here(),driver="ESRI Shapefile")
+toni.iso <- isopleths(toni.lhs) #extract just the isopleths from our LoCoH-xy object
+A5b.post.iso <- toni.iso[[1]]$area[[5]] #Extracts the 0.95 isopleth homerange area in m^2
+#writeOGR(A5b.post.iso, "A5bPost",dsn=here::here(),driver="ESRI Shapefile") #uncomment to export homerange ESRI shapefile
+
+```
 
 
-# Special Case of J3 - Remove points that don't represent home range
+# Deer Post Fire
+```{r}
+toni <- read.csv(here::here("Publication_Data","Collars","deer-gps-postfire.csv"))
+
+# Create Spatial Points Dataframe from lat/longs and project in UTM 10
+toni.sp.latlong<-(SpatialPoints(toni[,c("Longitude", "Latitude")], proj4string=CRS("+proj=longlat +ellps=WGS84")))
+toni.sp.utm <- spTransform(toni.sp.latlong, CRS("+proj=utm +zone=10 +ellps=WGS84"))
+
+# Create coord matrix and rename to x and y for locoh
+toni.mat.utm <- coordinates(toni.sp.utm)
+head(toni.mat.utm)
+colnames(toni.mat.utm) <- c("x", "y")
+
+# Create time class
+toni.localtime <- as.POSIXct(toni$TimeStamp, tz="America/Los_Angeles")
+
+# Create LoCoH isopleths
+toni.lxy <- xyt.lxy(xy=toni.mat.utm, dt=toni.localtime, tz= "America/Los_Angeles", id=toni$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE) #create a LoCoH-xy object
+toni.lxy <- lxy.nn.add(toni.lxy, s=0, k=25) #identifies nearest neighbors for a LoCoH-xy object
+toni.lhs <- lxy.lhs(toni.lxy, k=15, s=0) # Creates a LoCoH-hullset object 
+toni.lhs <- lhs.iso.add(toni.lhs) #Adds isopleths toa  LoCoH-hullset object
+
+#Animal IDs to plot in the id argument for this dataset : A4, A5b, D3b, F2, H2, H3, H4, H5, I5, J1, J2, J5, K1, K2, K4, P4, Q5 - Note that this won't be the correct value for Doe J3, see below
+plot(toni.lhs, iso=T, id = "A5b", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
+
+
+##This will export as shapefiles so you can get areas from the isopleth summaries (we'll be taking the 95%)
+toni.iso <- isopleths(toni.lhs) #extract just the isopleths from our LoCoH-xy object
+A5b.post.iso <- toni.iso[[1]]$area[[5]] #Extracts the 0.95 isopleth homerange area in m^2
+#writeOGR(A5b.post.iso, "A5bPost",dsn=here::here(),driver="ESRI Shapefile") #uncomment to export homerange ESRI shapefile
+
+
+
+
+# Special Case of J3 - Remove points that don't represent home range because J3 fled the fire front
 J3 <- toni[toni$AnimalID=="J3",] # Remove J3's return from during fire move over Cow Mountain
 J3 <- J3[rownames(J3)<5247,]
 
@@ -91,225 +115,13 @@ toni.localtime <- as.POSIXct(J3$TimeStamp, tz="America/Los_Angeles")
 
 # Create LoCoH isopleths
 toni.lxy <- xyt.lxy(xy=toni.mat.utm, dt=toni.localtime, tz= "America/Los_Angeles", id=J3$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE)
-plot(toni.lxy)
 lxy.plot.freq(toni.lxy, cp=T)
 toni.lxy <- lxy.nn.add(toni.lxy, s=0, k=25)
-summary(toni.lxy)
 toni.lhs <- lxy.lhs(toni.lxy, k=15, s=0)#could input krange here
-plot(toni.lhs, hulls=TRUE, figs.per.page=6)#Note if plot window is not large enough, this will not show up with no warning so increase plot window size
 toni.lhs <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE,figs.per.page=6) #Note if plot window is not large enough, this will not show up with no warning so increase plot window size
-toni.lhs <- lxy.lhs(toni.lxy, k = 15, s= 0) ##Chose 15 based on parameters in tutorial =  not swiss cheese, not crossing middle too much
-toni.lhs <-lhs.iso.add(toni.lhs)
-toni.lhsPre <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE, figs.per.page=1)
-
-#Animal IDs to plot in the id argument for this dataset : A5b, D3b, H2, H4, H5, I5, J1, J2, J3, J5, K1, K2, Q5
-plot(toni.lhs, iso=T, id = "K2", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
-
 
 ##This will export as shapefiles so you can get areas from the isopleth summaries (we'll be taking the 95%)
 toni.iso <- isopleths(toni.lhs)
-A5b.post.iso <- toni.iso[[1]]
-
+A5b.post.iso <- toni.iso[[1]]$area[[5]]
 ```
 
-
-# Vectronic Pre Fire
-```{r}
-toni <- read.csv(here::here("Publication_Data","Collars","Vectronic","VectronicPreFire.csv"))
-colnames(toni)[14]<-'Latitude'
-colnames(toni)[15]<-'Longitude'
-
-# Create Spatial Points Dataframe from lat/longs and project in UTM 10
-toni.sp.latlong<-(SpatialPoints(toni[,c("Longitude", "Latitude")], proj4string=CRS("+proj=longlat +ellps=WGS84")))
-toni.sp.utm <- spTransform(toni.sp.latlong, CRS("+proj=utm +zone=10 +ellps=WGS84"))
-
-# Create coord matrix and rename to x and y for locoh
-toni.mat.utm <- coordinates(toni.sp.utm)
-head(toni.mat.utm)
-colnames(toni.mat.utm) <- c("x", "y")
-
-# Create time class
-toni.localtime <- as.POSIXct(toni$TimeStamp, tz="America/Los_Angeles")
-
-# Create LoCoH isopleths
-toni.lxy <- xyt.lxy(xy=toni.mat.utm, dt=toni.localtime, tz= "America/Los_Angeles", id=toni$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE)
-plot(toni.lxy)
-lxy.plot.freq(toni.lxy, cp=T)
-toni.lxy <- lxy.nn.add(toni.lxy, s=0, k=25)
-summary(toni.lxy)
-toni.lhs <- lxy.lhs(toni.lxy, k=15, s=0)#could input krange here
-plot(toni.lhs, hulls=TRUE, figs.per.page=6)
-toni.lhs <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE,figs.per.page=6) 
-toni.lhs <- lxy.lhs(toni.lxy, k = 15, s= 0) ##Chose 15 based on parameters in tutorial =  not swiss cheese, not crossing middle too much
-toni.lhs <-lhs.iso.add(toni.lhs)
-toni.lhsPre <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE, figs.per.page=1)
-
-#Animal IDs to plot in the id argument for this dataset : A5b, D3b, H2, H4, H5, I5, J1, J2, J3, J5, K1, K2, Q5
-plot(toni.lhs, iso=T, id = "K2", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
-# To view areas
-toni.iso <- isopleths(toni.lhs)
-
-
-```
-
-# ATS Pre Fire
-```{r}
-toni <- read.csv(here::here("Publication_Data","Collars","ATS","ATSPreFire.csv"))
-
-
-# Create Spatial Points Dataframe from lat/longs and project in UTM 10
-toni.sp.latlong<-(SpatialPoints(toni[,c("Longitude", "Latitude")], proj4string=CRS("+proj=longlat +ellps=WGS84")))
-toni.sp.utm <- spTransform(toni.sp.latlong, CRS("+proj=utm +zone=10 +ellps=WGS84"))
-
-# Create coord matrix and rename to x and y for locoh
-toni.mat.utm <- coordinates(toni.sp.utm)
-head(toni.mat.utm)
-colnames(toni.mat.utm) <- c("x", "y")
-
-# Create time class
-toni.localtime <- as.POSIXct(toni$Time, tz="America/Los_Angeles", tryFormat=c("%m/%d/%Y %H:%M"))
-
-# Create LoCoH isopleths
-toni.lxy <- xyt.lxy(xy=toni.mat.utm, dt=toni.localtime, tz= "America/Los_Angeles", id=toni$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE)
-plot(toni.lxy)
-lxy.plot.freq(toni.lxy, cp=T)
-toni.lxy <- lxy.nn.add(toni.lxy, s=0, k=25)
-summary(toni.lxy)
-toni.lhs <- lxy.lhs(toni.lxy, k=15, s=0)#could input krange here
-plot(toni.lhs, hulls=TRUE, figs.per.page=6)
-toni.lhs <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE,figs.per.page=6) #
-toni.lhs <- lxy.lhs(toni.lxy, k = 15, s= 0) ##Chose 15 based on parameters in tutorial =  not swiss cheese, not crossing middle too much
-toni.lhs <-lhs.iso.add(toni.lhs)
-toni.lhsPre <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE, figs.per.page=1)
-
-#Animal IDs to plot in the id argument for this dataset : P4, H3
-plot(toni.lhs, iso=T, id = "H3", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
-
-toni.iso <- isopleths(toni.lhs)
-
-```
-
-# ATS Post Fire
-```{r}
-toni <- read.csv(here::here("Publication_Data","Collars","ATS","ATSPostFire.csv"))
-
-
-# Create Spatial Points Dataframe from lat/longs and project in UTM 10
-toni.sp.latlong<-(SpatialPoints(toni[,c("Longitude", "Latitude")], proj4string=CRS("+proj=longlat +ellps=WGS84")))
-toni.sp.utm <- spTransform(toni.sp.latlong, CRS("+proj=utm +zone=10 +ellps=WGS84"))
-
-# Create coord matrix and rename to x and y for locoh
-toni.mat.utm <- coordinates(toni.sp.utm)
-head(toni.mat.utm)
-colnames(toni.mat.utm) <- c("x", "y")
-
-# Create time class
-toni.localtime <- as.POSIXct(toni$Time, tz="America/Los_Angeles", tryFormat=c("%Y-%m-%d %H:%M:%S"))
-
-# Create LoCoH isopleths
-toni.lxy <- xyt.lxy(xy=toni.mat.utm, dt=toni.localtime, tz= "America/Los_Angeles", id=toni$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE)
-plot(toni.lxy)
-lxy.plot.freq(toni.lxy, cp=T)
-toni.lxy <- lxy.nn.add(toni.lxy, s=0, k=25)
-summary(toni.lxy)
-toni.lhs <- lxy.lhs(toni.lxy, k=15, s=0)#could input krange here
-plot(toni.lhs, hulls=TRUE, figs.per.page=6)
-toni.lhs <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE,figs.per.page=6) #
-toni.lhs <- lxy.lhs(toni.lxy, k = 15, s= 0) ##Chose 15 based on parameters in tutorial =  not swiss cheese, not crossing middle too much
-toni.lhs <-lhs.iso.add(toni.lhs)
-toni.lhsPre <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE, figs.per.page=1)
-
-#Animal IDs to plot in the id argument for this dataset : P4, H3
-plot(toni.lhs, iso=T, id = "H3", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
-
-toni.iso <- isopleths(toni.lhs)
-
-```
-
-# Lotek Pre Fire
-```{r}
-toni <- read.csv(here::here("Publication_Data","Collars","Lotek","LotekPreFire.csv"))
-toni <- toni[complete.cases(toni),]##For lotek only
-
-
-# Create Spatial Points Dataframe from lat/longs and project in UTM 10
-toni.sp.latlong<-(SpatialPoints(toni[,c("Longitude", "Latitude")], proj4string=CRS("+proj=longlat +ellps=WGS84")))
-toni.sp.utm <- spTransform(toni.sp.latlong, CRS("+proj=utm +zone=10 +ellps=WGS84"))
-
-# Create coord matrix and rename to x and y for locoh
-toni.mat.utm <- coordinates(toni.sp.utm)
-head(toni.mat.utm)
-colnames(toni.mat.utm) <- c("x", "y")
-
-# Create time class
-toni.localtime <- as.POSIXct(toni$TimeStamp, tz="America/Los_Angeles")
-
-# Create LoCoH isopleths
-toni.lxy <- xyt.lxy(xy=toni.mat.utm, dt=toni.localtime, tz= "America/Los_Angeles", id=toni$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE)
-plot(toni.lxy)
-lxy.plot.freq(toni.lxy, cp=T)
-toni.lxy <- lxy.nn.add(toni.lxy, s=0, k=25)
-summary(toni.lxy)
-toni.lhs <- lxy.lhs(toni.lxy, k=15, s=0)#could input krange here
-plot(toni.lhs, hulls=TRUE, figs.per.page=6)
-toni.lhs <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE,figs.per.page=6) #
-toni.lhs <- lxy.lhs(toni.lxy, k = 15, s= 0) ##Chose 15 based on parameters in tutorial =  not swiss cheese, not crossing middle too much
-toni.lhs <-lhs.iso.add(toni.lhs)
-toni.lhsPre <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE, figs.per.page=1)
-
-#Animal IDs to plot in the id argument for this dataset : H1, F2, A4, K4
-plot(toni.lhs, iso=T, id = "A4", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
-
-toni.iso <- isopleths(toni.lhs)
-
-```
-
-# Lotek Post Fire
-```{r}
-toni <- read.csv(here::here("Publication_Data","Collars","Lotek","LotekPostFire.csv"))
-toni <- toni[complete.cases(toni),]##For lotek only
-
-
-# Create Spatial Points Dataframe from lat/longs and project in UTM 10
-toni.sp.latlong<-(SpatialPoints(toni[,c("Longitude", "Latitude")], proj4string=CRS("+proj=longlat +ellps=WGS84")))
-toni.sp.utm <- spTransform(toni.sp.latlong, CRS("+proj=utm +zone=10 +ellps=WGS84"))
-
-# Create coord matrix and rename to x and y for locoh
-toni.mat.utm <- coordinates(toni.sp.utm)
-head(toni.mat.utm)
-colnames(toni.mat.utm) <- c("x", "y")
-
-# Create time class
-toni.localtime <- as.POSIXct(toni$TimeStamp, tz="America/Los_Angeles")
-
-# Create LoCoH isopleths
-toni.lxy <- xyt.lxy(xy=toni.mat.utm, dt=toni.localtime, tz= "America/Los_Angeles", id=toni$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE)
-plot(toni.lxy)
-lxy.plot.freq(toni.lxy, cp=T)
-toni.lxy <- lxy.nn.add(toni.lxy, s=0, k=25)
-summary(toni.lxy)
-toni.lhs <- lxy.lhs(toni.lxy, k=15, s=0)#could input krange here
-plot(toni.lhs, hulls=TRUE, figs.per.page=6)
-toni.lhs <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE,figs.per.page=6) #
-toni.lhs <- lxy.lhs(toni.lxy, k = 15, s= 0) ##Chose 15 based on parameters in tutorial =  not swiss cheese, not crossing middle too much
-toni.lhs <-lhs.iso.add(toni.lhs)
-toni.lhsPre <- lhs.iso.add(toni.lhs)
-plot(toni.lhs, iso=TRUE, figs.per.page=1)
-
-#Animal IDs to plot in the id argument for this dataset : H1, F2, A4, K4
-plot(toni.lhs, iso=T, id = "A4", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
-
-toni.iso <- isopleths(toni.lhs)
-
-```

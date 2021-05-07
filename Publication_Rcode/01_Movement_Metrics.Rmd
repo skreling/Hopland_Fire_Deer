@@ -7,6 +7,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+This script is meant to calculate different movement metrics for deer GPS points. Bucks and does are run separately because of a difference in fix rate (1 hour for does, 2 hours for bucks). Additional information on some of the movement metric code can be found (here)[https://www.danaseidel.com/MovEco-R-Workshop/Materials/Day6/Behavioral_Analysis/]. 
+
 #Install Pacages & Load Libraries
 ```{r}
 packages <- c('adehabitatHR','adehabitatLT','lubridate','plyr','rgeos','here','rgdal')
@@ -51,8 +54,6 @@ ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that ar
 df <- ld(ltraj)
 
 
-
-
 refda<- strptime("00:00", "%H:%M", tz="UTC") 
 refda
 ltraj3 <- setNA(ltraj, refda, 1, units = "hour")
@@ -63,9 +64,9 @@ is.regular(ltraj4) #check that they are all 1 hour apart
 
 ##Turn Angle Correlation
 TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
-for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative")
-TAC[i,] <- 1/(SA[[1]][1,])}
-View(TAC)
+for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative") #compute correlogram for angular and linear descritpors of a movement path
+TAC[i,] <- 1/(SA[[1]][1,])} #Compute turn angle correlation
+View(TAC) 
 
 ##RT & T2R
 RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
@@ -122,10 +123,10 @@ for ( i in 1: length(id)){
 }
 MNSD
 
-#Meters/Hour - Should just put in forloop but if not just change the first number in the bracket
+#Meters/Hour - Change the  number in the first bracket for each deer
 ##to change the collar number - dist/dt
-sumdist <- sum(ltraj4[[3]][[6]], na.rm = TRUE)
-tot <- count(ltraj4[[3]][[7]])
+sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[1]][[7]])
 sumdist/(tot$freq[1])
 #Meters/Day
 sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
