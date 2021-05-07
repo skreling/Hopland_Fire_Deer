@@ -1,0 +1,169 @@
+---
+title: "T-tests"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(openxlsx)
+```
+
+# Displacement During Fire
+```{r}
+
+#Mean displacement during fire
+table <- read.csv(here::here("Publication_Data","Collars","Distances_During_Fire_Final.csv"))
+firedeer <- table[-c(2,6,7,12, 15),]
+mean(firedeer$Distance)#avg = 1256.931, min =263.5014, max=4401
+
+nonfire <- table[c(2,6,7,12, 15),]
+mean(nonfire$Distance) #293.3645
+
+fire <- as.numeric(firedeer$Distance)
+nfire <- as.numeric(nonfire$Distance)
+
+#not equal variances use welches t test
+var.test(firedeer$Distance, nonfire$Distance)
+
+t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE)
+
+range(nfire)
+```
+# Movement Metrics
+```{r}
+#Movement metrics
+table <- read.xlsx(here::here("Publication_Data","Collars","summary_move_collars.xlsx"))
+buck <- table[table$AnimalID == "P4" | table$AnimalID=="H3",]
+doe <- table[c(2,3,6:9,11,12,13,16:17),]
+doeOut <- table[c(1,4:5,10),]
+
+#t=1.673, df=1, p=0.343, md=0.0226, sd=0.171
+t.test(buck$TAC_Paired_Pre, buck$TAC_Paired_Post, paired=T)
+#t=-0.54805, df=10, p=0.5957, md=-0.005, sd=0.0217
+t.test(doe$TAC_Paired_Pre,doe$TAC_Paired_Post, paired = T)
+
+
+t.test(doeOut$TAC_Paired_Pre, doeOut$TAC_Paired_Post, paired=T)
+mean(doeOut$TAC_Paired_Pre)
+sd(doeOut$TAC_Paired_Pre)
+mean(doeOut$TAC_Paired_Post)
+sd(doeOut$TAC_Paired_Post)
+
+#Mean RT
+#t=-2.5105, df=10, p-value=0.03089, md=-6.744238, sd=5.98567
+t.test(doe$MeanRT_Paired_Pre, doe$MeanRT_Paired_Post, paired=T)
+#t=0.87827, df=1, p=0.5412, md = 34.70273, sd = huge
+t.test(buck$MeanRT_Paired_Pre, buck$MeanRT_Paired_Post, paired=T)
+
+
+t.test(doeOut$MeanRT_Paired_Pre, doeOut$MeanRT_Paired_Post, paired=T)
+mean(doeOut$MeanRT_Paired_Pre)
+sd(doeOut$MeanRT_Paired_Pre)
+mean(doeOut$MeanRT_Paired_Post)
+sd(doeOut$MeanRT_Paired_Post)
+
+
+
+#Mean T2R
+#t=2.0221, df=10, p-value =0.07073, dif=8.593262,sd =9.468867
+t.test(doe$MeanT2r_Paired_Pre, doe$MeanT2R_Paired_Post, paired=T)
+#t=-1.1269, df=1, p=0.462, md=-9.598701, sd=huge
+t.test(buck$MeanT2r_Paired_Pre, buck$MeanT2R_Paired_Post, paired=T)
+
+t.test(doeOut$MeanT2r_Paired_Pre, doeOut$MeanT2R_Paired_Post, paired=T)
+mean(doeOut$MeanT2r_Paired_Pre)
+sd(doeOut$MeanT2r_Paired_Pre)
+mean(doeOut$MeanT2R_Paired_Post)
+sd(doeOut$MeanT2R_Paired_Post)
+
+
+#speed hr
+#t=-5.4866, df=10, p-value=0.0002668, dif=-698.248, sd=
+t.test(doe$Mean_Dist_Hour_Paired_Pre, doe$Mean_Dist_Hour_Paired_Post, paired=T)
+#t=9.397, df=1 p=0.067
+t.test(buck$Mean_Dist_Hour_Paired_Pre, buck$Mean_Dist_Hour_Paired_Post, paired=T)
+#dist day
+t.test(doe$Mean_Dist_Day_Paired_Pre, doe$Mean_Dist_Day_Paired_Post, paired=T)
+
+
+t.test(doeOut$Mean_Dist_Day_Paired_Pre, doeOut$Mean_Dist_Day_Paired_Post, paired=T)
+t.test(doeOut$MeanT2r_Paired_Pre, doeOut$MeanT2R_Paired_Post, paired=T)
+mean(doeOut$Mean_Dist_Day_Paired_Pre)
+sd(doeOut$Mean_Dist_Day_Paired_Pre)
+mean(doeOut$Mean_Dist_Day_Paired_Post)
+sd(doeOut$Mean_Dist_Day_Paired_Post)
+
+```
+# Straightness Index
+```{r}
+
+############################################################
+#Straightness Index
+table <- read.xlsx(here::here("Publication_Data","Collars","straightness_index.xlsx"))
+buck <- table[c(17:18),]
+doe <- table[-c(17:18),]
+# All does
+t.test(doe$Pre, doe$Post, paired=T)
+t.test(buck$Pre, buck$Post, paired=T)
+```
+# BCI
+```{r}
+#BCI t-tests
+PostOut <- read.csv(here::here("Publication_Data","Camera","Post_Out_BCI_Raw.csv"))
+PreOut <- read.csv(here::here("Publication_Data","Camera","Pre_Out_BCI_Raw.csv"))
+
+PostIn <- read.csv(here::here("Publication_Data","Camera","Post_BCI_Raw.csv"))
+PreIn <- read.csv(here::here("Publication_Data","Camera","Pre_BCI_Raw.csv"))
+
+PreDoeIn <- PreIn[PreIn$Species=='Deer - Doe',]
+PreDoeOut <- PreOut[PreOut$Species=='Deer - Doe', ]
+PostDoeIn <- PostIn[PostIn$Species=='Deer - Doe',]
+PostDoeOut <- PostOut[PostOut$Species=='Deer - Doe',]
+
+
+ks.test(PreOut$BCI, PostOut$BCI, alternative = "two.sided")# D=0.0758 p=0.2894
+ks.test(PreIn$BCI, PostIn$BCI, alternative="two.sided") #D=0.2285, p=4.06x10-9 very small p
+ks.test(PreIn$BCI, PreOut$BCI, alternative="two.sided")#0.0554, p=0.4292
+ks.test(PostIn$BCI,PostOut$BCI,alternative="two.sided") #D=0.1981, p=3.504 x 10-5
+
+#does
+ks.test(PreDoeOut$BCI, PostDoeOut$BCI)#d=0.0714, p=0.4963
+ks.test(PreDoeIn$BCI, PostDoeIn$BCI)#d-0.22969, p=5.34x10-7
+ks.test(PreDoeIn$BCI, PreDoeOut$BCI)#d=0.0584, p=0.5984
+ks.test(PostDoeIn$BCI, PostDoeOut$BCI)#d=0.22654, p=1.24x10-5
+
+PreDoeIn <- PreIn[PreIn$Species=='Deer - Buck',]
+PreDoeOut <- PreOut[PreOut$Species=='Deer - Buck', ]
+PostDoeIn <- PostIn[PostIn$Species=='Deer - Buck',]
+PostDoeOut <- PostOut[PostOut$Species=='Deer - Buck',]
+#bucks
+ks.test(PreDoeOut$BCI, PostDoeOut$BCI)#d=0.064394, p=0.9996
+ks.test(PreDoeIn$BCI, PostDoeIn$BCI)#d-0.10784, p=.7272
+ks.test(PreDoeIn$BCI, PreDoeOut$BCI)#d=0.07638, p=0.7789
+ks.test(PostDoeIn$BCI, PostDoeOut$BCI)#d=06667, p=1
+
+#t=6.95 p=<0.0001
+t.test(PreDoeIn$BCI, PostDoeIn$BCI)
+#t=2.04 p=<0.042
+t.test(PreDoeOut$BCI, PostDoeOut$BCI)
+
+PreDoeIn <- PreIn[PreIn$Species=='Deer - Buck',]
+PreDoeOut <- PreOut[PreOut$Species=='Deer - Buck', ]
+PostDoeIn <- PostIn[PostIn$Species=='Deer - Buck',]
+PostDoeOut <- PostOut[PostOut$Species=='Deer - Buck',]
+
+#t=0.011 p=<0.99
+t.test(PreDoeIn$BCI, PostDoeIn$BCI)
+#t=0.12 p=<0.91
+t.test(PreDoeOut$BCI, PostDoeOut$BCI)
+
+#t=7.35, p<0.0001
+t.test(PreIn$BCI, PostIn$BCI)
+#t=2.40, p=0.017
+mean(PreOut$BCI)
+t.test(PreOut$BCI, PostOut$BCI)
+```
+

@@ -1,0 +1,103 @@
+---
+title: "08_BCI_Moran's_I"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ape)
+library(tidyverse)
+library(here)
+library(dplyr)
+
+
+#This script is built to calcualte Moran's I values for black-tailed deer body condition index (BCI) values across camera traps used in this study
+
+
+
+bci <- read.csv(here::here("Publication_Data","Camera","BCI_All.csv"))
+bci.pre <- bci[bci$TimePeriod=="Pre",]
+bci.post <- bci[bci$TimePeriod=="Post",]
+bci.pre.mean <- aggregate(bci.pre$BCI, by=list(bci.pre$Station), FUN=mean)
+bci.post.mean <- aggregate(bci.post$BCI, by=list(bci.post$Station), FUN=mean) #
+
+camera.meta <- read.csv(here::here("Publication_Data","Camera","Camera_Metadata.csv"))
+camera.meta <- camera.meta[,1:3]
+colnames(camera.meta) <- c("Group.1","Latitude","Longitude")
+camera.meta1 <- inner_join(camera.meta, bci.pre.mean)
+
+camera.dists <- as.matrix(dist(cbind(camera.meta1$Longitude, camera.meta1$Latitude)))
+camera.dists.inv <- 1/camera.dists
+diag(camera.dists.inv) <- 0
+camera.dists.inv[1:5,1:5]
+#Pre fire morans I for combined doe and buck
+Moran.I(camera.meta1$x, camera.dists.inv) #pval=0.05, sd=0.032, expected =-0.04, obs=0.022
+
+camera.meta2 <- inner_join(camera.meta,bci.post.mean)
+camera.dists <- as.matrix(dist(cbind(camera.meta2$Longitude, camera.meta2$Latitude)))
+camera.dists.inv <- 1/camera.dists
+diag(camera.dists.inv) <-0
+#Post fire morans I for combined doe and buck
+Moran.I(camera.meta2$x, camera.dists.inv) #pval=0.49, sd=0.033, exp=-0.042, obs=-0.020
+
+
+##########################################################################
+#now lets run morans I for does and buck pre and post separately
+doe.pre <- bci.pre[bci.pre$Species=="Deer - Doe",]
+mean.doe.pre <- aggregate(doe.pre$BCI, by=list(doe.pre$Station), FUN=mean)
+doe.post <- bci.post[bci.post$Species=="Deer - Doe",]
+mean.doe.post <- aggregate(doe.post$BCI, by=list(doe.post$Station), FUN=mean)
+
+
+camera.meta3 <- inner_join(camera.meta, mean.doe.post)
+
+camera.dists <- as.matrix(dist(cbind(camera.meta3$Longitude, camera.meta3$Latitude)))
+camera.dists.inv <- 1/camera.dists
+diag(camera.dists.inv) <- 0
+camera.dists.inv[1:5,1:5]
+#Post fire morans I for doe 
+Moran.I(camera.meta3$x, camera.dists.inv) #pval=0.21, sd=0.033, expected =-0.042, obs=0.00014
+
+
+camera.meta4 <- inner_join(camera.meta, mean.doe.pre)
+
+camera.dists <- as.matrix(dist(cbind(camera.meta4$Longitude, camera.meta4$Latitude)))
+camera.dists.inv <- 1/camera.dists
+diag(camera.dists.inv) <- 0
+camera.dists.inv[1:5,1:5]
+#Pre fire morans I for doe 
+Moran.I(camera.meta4$x, camera.dists.inv) #pval=0.93, sd=0.031, expected =-0.042, obs=-0.039
+
+
+
+
+buck.pre <- bci.pre[bci.pre$Species=="Deer - Buck",]
+mean.buck.pre <- aggregate(buck.pre$BCI, by=list(buck.pre$Station), FUN=mean)
+buck.post <- bci.post[bci.post$Species=="Deer - Buck",]
+mean.buck.post <- aggregate(buck.post$BCI, by=list(buck.post$Station), FUN=mean)
+
+
+camera.meta5 <- inner_join(camera.meta, mean.buck.post)
+
+camera.dists <- as.matrix(dist(cbind(camera.meta5$Longitude, camera.meta5$Latitude)))
+camera.dists.inv <- 1/camera.dists
+diag(camera.dists.inv) <- 0
+camera.dists.inv[1:5,1:5]
+#Post fire morans I for buck 
+Moran.I(camera.meta5$x, camera.dists.inv) #pval=0.55, sd=0.056, expected =-0.0067, obs=-0.10
+
+
+camera.meta6 <- inner_join(camera.meta, mean.buck.pre)
+
+camera.dists <- as.matrix(dist(cbind(camera.meta6$Longitude, camera.meta6$Latitude)))
+camera.dists.inv <- 1/camera.dists
+diag(camera.dists.inv) <- 0
+camera.dists.inv[1:5,1:5]
+#Pre fire morans I for buck 
+Moran.I(camera.meta6$x, camera.dists.inv) #pval=0.04, sd=0.046, expected =-0.056, obs=0.041
+
+```
+

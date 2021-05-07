@@ -1,0 +1,38 @@
+---
+title: "Average_Homerange_Calculation"
+output: html_document
+---
+This script is used to test average home range isopleth areas for different deer inside and outside of the fire.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+table <- read.csv(here::here("Publication_Data","Collars","Isopleth_Areas.csv"))
+table.wide <- table %>% pivot_wider(id_cols=Deer, names_from = Time, values_from = Area.km2.)
+
+#For Fire Does
+#Pre
+#avg=0.1545283, SD = 0.05280162
+#Post
+#avg=0.2612817, SD = 0.200672
+Fire<- table.wide[c(2,3,6:9,11:13,16:17),]
+mean(Fire$Pre)
+sd(Fire$Pre)
+mean(Fire$Post)
+sd(Fire$Post)
+
+#Outside Fire Does
+OFire<- table.wide[-c(2,3,6:9,11:12,13:15,17),]
+mean(OFire$Pre)
+sd(OFire$Pre)
+mean(OFire$Post)
+sd(OFire$Post)
+#t=-1.9658, df=10, p=0.07768, mean dif =-0.071
+t.test(Fire$Pre, Fire$Post, paired=T, var.equal = F)
+
+#t = -1.0735, df = 5, p-value = 0.3321, mean dif =-0.044
+t.test(OFire$Pre, OFire$Post, paired=T, var.equal=F)
+```
+

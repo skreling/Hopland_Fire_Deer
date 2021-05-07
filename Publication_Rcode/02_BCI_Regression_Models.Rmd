@@ -1,0 +1,102 @@
+---
+title: "BCI_Regression_Models"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+This script is to create mixed effect linear regression models for body condiiotn indices for black-tailed deer inside the burn perimeter.
+
+```{r}
+packages <- c('lme4','openxlsx','MuMIn','here','dplyr')
+
+install_load <- function(packages){
+     for (p in packages) {
+          if (p %in% rownames(installed.packages())) {
+               library(p, character.only=TRUE)
+          } else {
+               install.packages(p)
+               library(p,character.only = TRUE)
+          }
+     }
+}
+
+install_load(packages)
+```
+
+```{r}
+
+#We'll be using the r.squaredGLMM() function to obtain R squared values for our models, Rm is hte prop of var explained by fixed factors
+#Rc is the conditoinal R squred which is proportion of var explained by fixed and random effects
+bci.all <- read.csv(here::here("Publication_Data","Camera","BCI_All.csv"))
+
+
+#What we want to do based on reviewer comments is put a "days since fire" variable into the body condition modeling
+fire.date <- as.Date("7/27/2018", format="%m/%d/%y")
+bci.all$date2 <- as.Date(bci.all$Date, format="%m/%d/%y")
+bci.all$time.since.fire <- (fire.date-bci.all$date2)#this does what we want!
+#now lets make that column a numeric value in a way that makes more sense to process
+bci.all$time.since.fire <- as.numeric(bci.all$time.since.fire) #this works as well
+
+bci <- bci.all[,c(1,2,6,9,10,12)]#remove unneeded columns
+variables.to.standardize <- bci[,c(2,6)]
+variables.standardized <- matrix(ncol=2, nrow=length(variables.to.standardize$BCI))
+
+#Standardize non categorical predictor varaibles
+for (i in 1:1){
+  for(i in 1:length(variables.to.standardize)){
+  variables.standardized[,i] <- scale(variables.to.standardize[,i], center=T, scale=T)
+  }
+  return(variables.standardized)
+}
+bci[,7:8] <- variables.standardized
+
+
+
+#split into buck and doe BCI
+bci.doe <- bci[bci.all$Species=="Deer - Doe",]
+bci.buck <- bci[bci.all$Species=="Deer - Buck",]
+
+#new models with time since fire varaible - standardzied
+null <- lmer(V7~(1|Station),data=bci.doe) #null model 3193
+a <- lmer(V7 ~ Area * V8 +(1|Station), data=bci.doe) #3140
+b <- lmer(V7~Area + (1|Station),data=bci.doe) #3193
+c <- lmer(V7 ~ V8+ (1|Station),data=bci.doe)#3140
+#new models not standardized
+null <- lmer(BCI ~(1|Station),data=bci.doe)#2996
+a <- lmer(BCI~Area*time.since.fire+(1|Station),data=bci.doe)#2951
+r.squaredGLMM(a) #Rm=0.08, Rc=0.27
+b <- lmer(BCI~Area*time.since.fire+(1|Station), data=bci.buck)
+r.squaredGLMM(b)
+b <- lmer(BCI~Area+(1|Station), data=bci.doe)#2990
+r.squaredGLMM(b)#Rm=0.02, Rc=0.022
+c <- lmer(BCI~time.since.fire+(1|Station), data=bci.doe)#2943
+r.squaredGLMM(c)#Rm=0.04, Rc=0.29
+
+null <- lmer(BCI~(1|Station), data=bci.buck)
+
+
+
+#original models without the time since fire variable
+null <- lmer(BCI~(1|Station),data=bci.doe) #null model 2996.093
+r.squaredGLMM(null) #rm=0, rc=0.23
+a <- lmer(BCI ~ TimePeriod * Area +(1|Station), data=bci.doe)#2939.625 BEST MODEL
+r.squaredGLMM(a)#rm=0.08, 0.27
+b <- lmer(BCI ~ TimePeriod + (1|Station), data=bci.doe) #2944.632
+r.squaredGLMM(b)#rm=0.04, 0.28
+c <- lmer(BCI~Area + (1|Station), data=bci.doe) #2997.672
+r.squaredGLMM(c)#rm=0.02, rc=0.22
+
+nullb <- lmer(BCI~(1|Station),data=bci.buck) #null model 951.4633
+r.squaredGLMM(nullb)#0,0.22
+c <- lmer(BCI ~ time.since.fire * Area +(1|Station), data=bci.buck)#962.4327
+r.squaredGLMM(c)#0.006, 0.24
+d <- lmer(BCI ~ TimePeriod + (1|Station), data=bci.buck) #956.2521
+r.squaredGLMM(d)#0.0002,0.23
+e <- lmer(BCI~Area + (1|Station), data=bci.buck)#954.2583
+r.squaredGLMM(e)#0.006, 0.24
+
+```
+
+

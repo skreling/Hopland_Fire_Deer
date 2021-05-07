@@ -1,0 +1,743 @@
+---
+title: "Movement_Metric_Calculations"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Install Pacages & Load Libraries
+```{r}
+packages <- c('adehabitatHR','adehabitatLT','lubridate','plyr','rgeos','here','rgdal')
+
+install_load <- function(packages){
+     for (p in packages) {
+          if (p %in% rownames(installed.packages())) {
+               library(p, character.only=TRUE)
+          } else {
+               install.packages(p)
+               library(p,character.only = TRUE)
+          }
+     }
+}
+
+install_load(packages)
+```
+
+# Paired Pre Fire Vectronic Movement Metrics
+```{r}
+
+##VECTRONIC - PAIRED PRE FIRE - Code is the exact same as above, but for the pre-fire vecotornic deer dataframe
+collars <- read.csv(here::here("Publication_Data","Collars","Vectronic","VectronicPreFire.csv"))
+head(collars)
+collars$TimeStamp <-collars$Date_Time1
+collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC")
+
+
+##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
+xy <- collars[,c(15,14)]  ## get lat/long from data frame
+coordinates(xy) <- c("Longitude....", "Latitude....")
+proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
+res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
+res2 <- as.data.frame(res)
+
+
+## dt = number of minutes between successive steps (3600 seconds = 1 hour)
+ltraj <- as.ltraj(res2[, c("Longitude....", "Latitude....")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID)
+ltraj
+collars$TimeStamp[duplicated(collars$TimeStamp)]
+plot(ltraj)
+head(ltraj[[1]])
+ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)")
+df <- ld(ltraj)
+head(df)
+head(ltraj2[[1]])
+plot(ltraj2)
+
+
+##Coerce dates to nearest hour
+plotltr(ltraj2, "dt/3600")
+refda<- strptime("00:00", "%H:%M", tz="UTC") 
+refda
+ltraj3 <- setNA(ltraj, refda, 1, units = "hour")
+ltraj4<- sett0(ltraj3, refda, 1, units = "hour")
+head(ltraj4[[1]])
+is.regular(ltraj4)
+
+
+
+##Turn Angle Correlation
+TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
+nrow(ltraj4[[1]])
+for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative")
+TAC[i,] <- 1/(SA[[1]][1,])}
+View(TAC)
+
+##Return time and mean time to return
+RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
+  fR <- function(x, dframe, radius, maxt, units=units){
+    tmp <- dframe[c(x:nrow(dframe)),]
+    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
+    dists <- as.numeric(dists<=radius)
+    ext <- which(dists[-length(dists)] > dists[-1])+1
+    entr <-  which(dists[-length(dists)] < dists[-1])+1
+    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
+    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
+    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
+    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
+    return(c(tmp1, tmp2))
+  } 
+  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
+  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
+  
+  if (!addinfo) return(res)
+  if (addinfo) {
+    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
+    return(x) 
+  }
+}
+lres <- list()
+for (j in 1:length(ltraj)){
+  res <- ltraj4[[j]][,c("x","y","date")]
+  meanDist<- mean(ltraj4[[j]][1:nrow(ltraj4[[j]])-1,"dist"], na.rm=T)
+  rads <- c(meanDist) 
+  maxts <- c(12) 
+  params <- expand.grid(rads=rads, maxts=maxts)
+  for (i in 1:nrow(params)){
+    nams <- names(res)
+    tmp <- RTandT2R(ltraj4[[j]], radius = params$rads[i], maxt=params$maxts[i], units="hour", addinfo = F)
+    res <- cbind(res, tmp)
+    names(res) <- c(nams, paste("RT", params$rads[i], params$maxts[i], sep="_"), paste("T2R", params$rads[i], params$maxts[i], sep="_"))
+  }
+  lres[[j]] <- res
+}
+
+
+
+meanRTs <- sapply(lapply(lres, "[[", 4), function(x) mean(x, na.rm=T))
+meanRTs
+
+meanT2Rs <- sapply(lapply(lres, "[[", 5), function(x) mean(x, na.rm=T))
+meanT2Rs
+
+
+##MNSD --> Must be calculated after R2N
+id <- levels(df$id)
+MNSD <- matrix (ncol=1, nrow=length(id))
+for ( i in 1: length(id)){
+  NSD <- data.frame (MNSD = df$R2n[which(df$id==id[i])])
+  MNSD[i,] <- sapply(NSD, function(x) max(NSD$MNSD, na.rm=TRUE))
+}
+MNSD
+
+#Meters/Hour - Should just put in forloop but if not just change the first number in the bracket
+##to change the collar number - dist/dt
+sumdist <- sum(ltraj4[[13]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[13]][[7]])
+sumdist/(tot$freq[1])
+#Meters/Day
+sumdist <- sum(ltraj4[[13]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[13]][[7]])
+sumdist/(tot$freq[1]/24)
+
+```
+
+# Paired Post-fire Vectronic Movement Metrics
+```{r}
+
+##VECTRONIC - PAIRED POST FIRE
+
+collars <- read.csv(here::here("Publication_Data","Collars","Vectronic","VectronicPostFire.csv"))
+head(collars)
+collars$TimeStamp <-collars$Date_Time1
+collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC")
+
+
+##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
+xy <- collars[,c(15,14)]  ## get lat/long from data frame
+coordinates(xy) <- c("Longitude....", "Latitude....")
+proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
+res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
+res2 <- as.data.frame(res)
+
+
+## dt = number of minutes between successive steps (3600 seconds = 1 hour)
+# Turn dataframe in ltraj object and plot points
+ltraj <- as.ltraj(res2[, c("Longitude....", "Latitude....")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID)
+ltraj
+collars$TimeStamp[duplicated(collars$TimeStamp)]
+plot(ltraj)
+head(ltraj[[1]])
+ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)")
+df <- ld(ltraj)
+head(df)
+head(ltraj2[[1]])
+plot(ltraj2)
+
+
+
+plotltr(ltraj2, "dt/3600")
+refda<- strptime("00:00", "%H:%M", tz="UTC") 
+refda
+ltraj3 <- setNA(ltraj, refda, 1, units = "hour")
+ltraj4<- sett0(ltraj3, refda, 1, units = "hour")
+head(ltraj4[[1]])
+is.regular(ltraj4)
+
+
+
+##Turn Angle Correlation
+TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
+nrow(ltraj4[[1]])
+for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative")
+TAC[i,] <- 1/(SA[[1]][1,])}
+View(TAC)
+
+##RT & T2R
+RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
+  fR <- function(x, dframe, radius, maxt, units=units){
+    tmp <- dframe[c(x:nrow(dframe)),]
+    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
+    dists <- as.numeric(dists<=radius)
+    ext <- which(dists[-length(dists)] > dists[-1])+1
+    entr <-  which(dists[-length(dists)] < dists[-1])+1
+    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
+    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
+    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
+    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
+    return(c(tmp1, tmp2))
+  } 
+  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
+  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
+  
+  if (!addinfo) return(res)
+  if (addinfo) {
+    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
+    return(x) 
+  }
+}
+lres <- list()
+for (j in 1:length(ltraj)){
+  res <- ltraj4[[j]][,c("x","y","date")]
+  meanDist<- mean(ltraj4[[j]][1:nrow(ltraj4[[j]])-1,"dist"], na.rm=T)
+  rads <- c(meanDist) 
+  maxts <- c(12) 
+  params <- expand.grid(rads=rads, maxts=maxts)
+  for (i in 1:nrow(params)){
+    nams <- names(res)
+    tmp <- RTandT2R(ltraj4[[j]], radius = params$rads[i], maxt=params$maxts[i], units="hour", addinfo = F)
+    res <- cbind(res, tmp)
+    names(res) <- c(nams, paste("RT", params$rads[i], params$maxts[i], sep="_"), paste("T2R", params$rads[i], params$maxts[i], sep="_"))
+  }
+  lres[[j]] <- res
+}
+
+
+
+meanRTs <- sapply(lapply(lres, "[[", 4), function(x) mean(x, na.rm=T))
+meanRTs
+
+meanT2Rs <- sapply(lapply(lres, "[[", 5), function(x) mean(x, na.rm=T))
+meanT2Rs
+
+
+##MNSD --> Must be calculated after R2N
+id <- levels(df$id)
+MNSD <- matrix (ncol=1, nrow=length(id))
+for ( i in 1: length(id)){
+  NSD <- data.frame (MNSD = df$R2n[which(df$id==id[i])])
+  MNSD[i,] <- sapply(NSD, function(x) max(NSD$MNSD, na.rm=TRUE))
+}
+MNSD
+
+#Meters/Hour - change the first number in the bracket to change the collar number - dist/dt
+sumdist <- sum(ltraj4[[13]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[13]][[7]])
+sumdist/(tot$freq[1])
+#Meters/Day
+sumdist <- sum(ltraj4[[14]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[14]][[7]])
+sumdist/(tot$freq[1]/24)
+
+
+
+
+
+```
+
+# ATS Paired Pre-Fire Movement Metrics
+```{r}
+##ATS - PAIRED PRE FIRE
+collars <- read.csv(here::here("Publication_Data","Collars","ATS","ATSPreFire.csv"))
+head(collars)
+collars$TimeStamp <-collars$Date_Time1
+collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC")
+
+
+##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
+xy <- collars[,c(12,11)]  ## get lat/long from data frame
+coordinates(xy) <- c("Longitude", "Latitude")
+proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
+res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
+res2 <- as.data.frame(res)
+
+
+## dt = number of minutes between successive steps (3600 seconds = 1 hour)
+ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID)
+ltraj
+collars$TimeStamp[duplicated(collars$TimeStamp)]
+plot(ltraj)
+head(ltraj[[1]])
+ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)")
+df <- ld(ltraj)
+head(df)
+head(ltraj2[[1]])
+plot(ltraj2)
+
+
+##Need to turn into for-loop
+plotltr(ltraj2, "dt/3600/2")
+refda<- strptime("00:00", "%H:%M", tz="UTC") 
+refda
+ltraj3 <- setNA(ltraj, refda, 2, units = "hour")
+ltraj4<- sett0(ltraj3, refda, 2, units = "hour")
+head(ltraj4[[1]])
+is.regular(ltraj4)
+
+
+
+##Turn Angle Correlation
+TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
+nrow(ltraj4[[1]])
+for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative")
+TAC[i,] <- 1/(SA[[1]][1,])}
+View(TAC)
+
+##RT & T2R
+RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
+  fR <- function(x, dframe, radius, maxt, units=units){
+    tmp <- dframe[c(x:nrow(dframe)),]
+    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
+    dists <- as.numeric(dists<=radius)
+    ext <- which(dists[-length(dists)] > dists[-1])+1
+    entr <-  which(dists[-length(dists)] < dists[-1])+1
+    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
+    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
+    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
+    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
+    return(c(tmp1, tmp2))
+  } 
+  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
+  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
+  
+  if (!addinfo) return(res)
+  if (addinfo) {
+    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
+    return(x) 
+  }
+}
+lres <- list()
+for (j in 1:length(ltraj)){
+  res <- ltraj4[[j]][,c("x","y","date")]
+  meanDist<- mean(ltraj4[[j]][1:nrow(ltraj4[[j]])-1,"dist"], na.rm=T)
+  rads <- c(meanDist) 
+  maxts <- c(12) 
+  params <- expand.grid(rads=rads, maxts=maxts)
+  for (i in 1:nrow(params)){
+    nams <- names(res)
+    tmp <- RTandT2R(ltraj4[[j]], radius = params$rads[i], maxt=params$maxts[i], units="hour", addinfo = F)
+    res <- cbind(res, tmp)
+    names(res) <- c(nams, paste("RT", params$rads[i], params$maxts[i], sep="_"), paste("T2R", params$rads[i], params$maxts[i], sep="_"))
+  }
+  lres[[j]] <- res
+}
+
+
+
+meanRTs <- sapply(lapply(lres, "[[", 4), function(x) mean(x, na.rm=T))
+meanRTs
+
+meanT2Rs <- sapply(lapply(lres, "[[", 5), function(x) mean(x, na.rm=T))
+meanT2Rs
+
+
+##MNSD --> Must be calculated after R2N
+id <- levels(df$id)
+MNSD <- matrix (ncol=1, nrow=length(id))
+for ( i in 1: length(id)){
+  NSD <- data.frame (MNSD = df$R2n[which(df$id==id[i])])
+  MNSD[i,] <- sapply(NSD, function(x) max(NSD$MNSD, na.rm=TRUE))
+}
+MNSD
+
+#Meters/Hour - Should just put in forloop but if not just change the first number in the bracket
+##to change the collar number - dist/dt
+sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[1]][[7]])
+sumdist/(tot$freq[1])
+#Meters/Day
+sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[1]][[7]])
+sumdist/(tot$freq[1]/12)
+
+```
+
+# ATS Post-fire Paired Movement Metrics
+```{r}
+
+
+##ATS - ALL POST FIRE
+collars <- read.csv(here::here("Publication_Data","Collars","ATS","ATSPostFire.csv"))
+head(collars)
+collars$TimeStamp <-collars$Date_Time1
+collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC")
+
+
+##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
+xy <- collars[,c(12,11)]  ## get lat/long from data frame
+coordinates(xy) <- c("Longitude", "Latitude")
+proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
+res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
+res2 <- as.data.frame(res)
+
+
+## dt = number of minutes between successive steps (3600 seconds = 1 hour)
+ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID)
+ltraj
+collars$TimeStamp[duplicated(collars$TimeStamp)]
+plot(ltraj)
+head(ltraj[[1]])
+ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)")
+df <- ld(ltraj)
+head(df)
+head(ltraj2[[1]])
+plot(ltraj2)
+
+
+##Need to turn into for-loop
+plotltr(ltraj2, "dt/3600/2")
+refda<- strptime("00:00", "%H:%M", tz="UTC") 
+refda
+ltraj3 <- setNA(ltraj, refda, 2, units = "hour")
+ltraj4<- sett0(ltraj3, refda, 2, units = "hour")
+head(ltraj4[[1]])
+is.regular(ltraj4)
+
+
+
+##Turn Angle Correlation
+TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
+nrow(ltraj4[[1]])
+for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative")
+TAC[i,] <- 1/(SA[[1]][1,])}
+View(TAC)
+
+##RT & T2R
+RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
+  fR <- function(x, dframe, radius, maxt, units=units){
+    tmp <- dframe[c(x:nrow(dframe)),]
+    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
+    dists <- as.numeric(dists<=radius)
+    ext <- which(dists[-length(dists)] > dists[-1])+1
+    entr <-  which(dists[-length(dists)] < dists[-1])+1
+    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
+    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
+    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
+    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
+    return(c(tmp1, tmp2))
+  } 
+  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
+  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
+  
+  if (!addinfo) return(res)
+  if (addinfo) {
+    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
+    return(x) 
+  }
+}
+lres <- list()
+for (j in 1:length(ltraj)){
+  res <- ltraj4[[j]][,c("x","y","date")]
+  meanDist<- mean(ltraj4[[j]][1:nrow(ltraj4[[j]])-1,"dist"], na.rm=T)
+  rads <- c(meanDist) 
+  maxts <- c(12) 
+  params <- expand.grid(rads=rads, maxts=maxts)
+  for (i in 1:nrow(params)){
+    nams <- names(res)
+    tmp <- RTandT2R(ltraj4[[j]], radius = params$rads[i], maxt=params$maxts[i], units="hour", addinfo = F)
+    res <- cbind(res, tmp)
+    names(res) <- c(nams, paste("RT", params$rads[i], params$maxts[i], sep="_"), paste("T2R", params$rads[i], params$maxts[i], sep="_"))
+  }
+  lres[[j]] <- res
+}
+
+
+
+meanRTs <- sapply(lapply(lres, "[[", 4), function(x) mean(x, na.rm=T))
+meanRTs
+
+meanT2Rs <- sapply(lapply(lres, "[[", 5), function(x) mean(x, na.rm=T))
+meanT2Rs
+
+
+##MNSD --> Must be calculated after R2N
+id <- levels(df$id)
+MNSD <- matrix (ncol=1, nrow=length(id))
+for ( i in 1: length(id)){
+  NSD <- data.frame (MNSD = df$R2n[which(df$id==id[i])])
+  MNSD[i,] <- sapply(NSD, function(x) max(NSD$MNSD, na.rm=TRUE))
+}
+MNSD
+
+#Meters/Hour - Should just put in forloop but if not just change the first number in the bracket
+##to change the collar number - dist/dt
+sumdist <- sum(ltraj4[[4]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[4]][[7]])
+sumdist/(tot$freq[1])
+#Meters/Day
+sumdist <- sum(ltraj4[[4]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[4]][[7]])
+sumdist/(tot$freq[1]/12)
+
+
+
+```
+
+# Lotek Pre-fire Paired Movement Metrics
+```{r}
+
+##LOTEK - DURING FIRE
+collars <- read.csv(here::here("Publication_Data","Collars","Lotek","LotekPreFire.csv"))
+collars <- collars[complete.cases(collars),]
+head(collars)
+collars$TimeStamp <-collars$Date_Time1
+collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC")
+
+
+##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
+xy <- collars[,c(10,9)]  ## get lat/long from data frame
+coordinates(xy) <- c("Longitude", "Latitude")
+proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
+res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
+res2 <- as.data.frame(res)
+
+
+## dt = number of minutes between successive steps (3600 seconds = 1 hour)
+ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID)
+ltraj
+times <- collars$TimeStamp[duplicated(collars$TimeStamp)]
+plot(ltraj)
+head(ltraj[[1]])
+ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)")
+df <- ld(ltraj)
+head(df)
+head(ltraj2[[1]])
+plot(ltraj2)
+
+
+##Need to turn into for-loop
+plotltr(ltraj2, "dt/3600")
+refda<- strptime("00:00", "%H:%M", tz="UTC") 
+refda
+ltraj3 <- setNA(ltraj, refda, 1, units = "hour")
+ltraj4<- sett0(ltraj3, refda, 1, units = "hour")
+head(ltraj4[[1]])
+is.regular(ltraj4)
+
+
+
+##Turn Angle Correlation
+TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
+nrow(ltraj4[[1]])
+for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative")
+TAC[i,] <- 1/(SA[[1]][1,])}
+View(TAC)
+
+##RT & T2R
+RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
+  fR <- function(x, dframe, radius, maxt, units=units){
+    tmp <- dframe[c(x:nrow(dframe)),]
+    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
+    dists <- as.numeric(dists<=radius)
+    ext <- which(dists[-length(dists)] > dists[-1])+1
+    entr <-  which(dists[-length(dists)] < dists[-1])+1
+    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
+    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
+    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
+    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
+    return(c(tmp1, tmp2))
+  } 
+  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
+  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
+  
+  if (!addinfo) return(res)
+  if (addinfo) {
+    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
+    return(x) 
+  }
+}
+lres <- list()
+for (j in 1:length(ltraj)){
+  res <- ltraj4[[j]][,c("x","y","date")]
+  meanDist<- mean(ltraj4[[j]][1:nrow(ltraj4[[j]])-1,"dist"], na.rm=T)
+  rads <- c(meanDist) 
+  maxts <- c(12) 
+  params <- expand.grid(rads=rads, maxts=maxts)
+  for (i in 1:nrow(params)){
+    nams <- names(res)
+    tmp <- RTandT2R(ltraj4[[j]], radius = params$rads[i], maxt=params$maxts[i], units="hour", addinfo = F)
+    res <- cbind(res, tmp)
+    names(res) <- c(nams, paste("RT", params$rads[i], params$maxts[i], sep="_"), paste("T2R", params$rads[i], params$maxts[i], sep="_"))
+  }
+  lres[[j]] <- res
+}
+
+
+
+meanRTs <- sapply(lapply(lres, "[[", 4), function(x) mean(x, na.rm=T))
+meanRTs
+
+meanT2Rs <- sapply(lapply(lres, "[[", 5), function(x) mean(x, na.rm=T))
+meanT2Rs
+
+
+##MNSD --> Must be calculated after R2N
+id <- levels(df$id)
+MNSD <- matrix (ncol=1, nrow=length(id))
+for ( i in 1: length(id)){
+  NSD <- data.frame (MNSD = df$R2n[which(df$id==id[i])])
+  MNSD[i,] <- sapply(NSD, function(x) max(NSD$MNSD, na.rm=TRUE))
+}
+MNSD
+
+#Meters/Hour - Should just put in forloop but if not just change the first number in the bracket
+##to change the collar number - dist/dt
+sumdist <- sum(ltraj4[[3]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[3]][[7]])
+sumdist/(tot$freq[1])
+#Meters/Day
+sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[1]][[7]])
+sumdist/(tot$freq[1]/24)
+```
+
+# Lotek post-fire paired Movement Metric
+```{r}
+
+##LOTEK - DURING FIRE
+collars <- read.csv(here::here("Publication_Data","Collars","Lotek","LotekPostFire.csv"))
+collars <- collars[complete.cases(collars),]
+head(collars)
+collars$TimeStamp <-collars$Date_Time1
+collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC")
+
+
+##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
+xy <- collars[,c(10,9)]  ## get lat/long from data frame
+coordinates(xy) <- c("Longitude", "Latitude")
+proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
+res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
+res2 <- as.data.frame(res)
+
+
+## dt = number of minutes between successive steps (3600 seconds = 1 hour)
+ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID)
+ltraj
+times <- collars$TimeStamp[duplicated(collars$TimeStamp)]
+plot(ltraj)
+head(ltraj[[1]])
+ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)")
+df <- ld(ltraj)
+head(df)
+head(ltraj2[[1]])
+plot(ltraj2)
+
+
+##Need to turn into for-loop
+plotltr(ltraj2, "dt/3600")
+refda<- strptime("00:00", "%H:%M", tz="UTC") 
+refda
+ltraj3 <- setNA(ltraj, refda, 1, units = "hour")
+ltraj4<- sett0(ltraj3, refda, 1, units = "hour")
+head(ltraj4[[1]])
+is.regular(ltraj4)
+
+
+
+##Turn Angle Correlation
+TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
+nrow(ltraj4[[1]])
+for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative")
+TAC[i,] <- 1/(SA[[1]][1,])}
+View(TAC)
+
+##RT & T2R
+RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
+  fR <- function(x, dframe, radius, maxt, units=units){
+    tmp <- dframe[c(x:nrow(dframe)),]
+    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
+    dists <- as.numeric(dists<=radius)
+    ext <- which(dists[-length(dists)] > dists[-1])+1
+    entr <-  which(dists[-length(dists)] < dists[-1])+1
+    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
+    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
+    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
+    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
+    return(c(tmp1, tmp2))
+  } 
+  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
+  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
+  
+  if (!addinfo) return(res)
+  if (addinfo) {
+    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
+    return(x) 
+  }
+}
+lres <- list()
+for (j in 1:length(ltraj)){
+  res <- ltraj4[[j]][,c("x","y","date")]
+  meanDist<- mean(ltraj4[[j]][1:nrow(ltraj4[[j]])-1,"dist"], na.rm=T)
+  rads <- c(meanDist) 
+  maxts <- c(12) 
+  params <- expand.grid(rads=rads, maxts=maxts)
+  for (i in 1:nrow(params)){
+    nams <- names(res)
+    tmp <- RTandT2R(ltraj4[[j]], radius = params$rads[i], maxt=params$maxts[i], units="hour", addinfo = F)
+    res <- cbind(res, tmp)
+    names(res) <- c(nams, paste("RT", params$rads[i], params$maxts[i], sep="_"), paste("T2R", params$rads[i], params$maxts[i], sep="_"))
+  }
+  lres[[j]] <- res
+}
+
+
+
+meanRTs <- sapply(lapply(lres, "[[", 4), function(x) mean(x, na.rm=T))
+meanRTs
+
+meanT2Rs <- sapply(lapply(lres, "[[", 5), function(x) mean(x, na.rm=T))
+meanT2Rs
+
+
+##MNSD --> Must be calculated after R2N
+id <- levels(df$id)
+MNSD <- matrix (ncol=1, nrow=length(id))
+for ( i in 1: length(id)){
+  NSD <- data.frame (MNSD = df$R2n[which(df$id==id[i])])
+  MNSD[i,] <- sapply(NSD, function(x) max(NSD$MNSD, na.rm=TRUE))
+}
+MNSD
+
+#Meters/Hour - Should just put in forloop but if not just change the first number in the bracket
+##to change the collar number - dist/dt
+sumdist <- sum(ltraj4[[3]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[3]][[7]])
+sumdist/(tot$freq[1])
+#Meters/Day
+sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
+tot <- count(ltraj4[[1]][[7]])
+sumdist/(tot$freq[1]/24)
+
+```
+
