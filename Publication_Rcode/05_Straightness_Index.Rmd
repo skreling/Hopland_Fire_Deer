@@ -6,6 +6,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+This script calcualtes straightness indices for deer movement
 
 # Load Libraries
 ```{r}
@@ -34,17 +35,19 @@ xy <- deer[,c("Longitude","Latitude")]  ## get lat/long from data frame
 coordinates(xy) <- c("Longitude", "Latitude")
 proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
 res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
-res2 <- as.data.frame(res)
+res2 <- as.data.frame(res) #convert to dataframe
 
 
 
 # Animal IDs include: A5, A5b, D3b, F2, H2, H3, H4, H5, I5, J1, J2, J3, J5, K1, K2, K4, P4, Q5
 coords <- data.frame(x=deer[deer$AnimalID=="K2",]$Easting, y = deer[deer$AnimalID=="K2",]$Northing, times=deer[deer$AnimalID=="K2",]$Time, id=deer[deer$AnimalID=="K2",]$AnimalID)
-trj <- TrajFromCoords(coords)
-plot(trj)
+trj <- TrajFromCoords(coords) # create a trajectory object
 
 
-TrajStraightness(trj)
+TrajStraightness(trj) #calculates straightness index of a trajectory
+
+
+
 ```
 
 
@@ -64,7 +67,6 @@ res2 <- as.data.frame(res)
 # Animal IDs include: A5, A5b, D3b, F2, H2, H3, H4, H5, I5, J1, J2, J3, J5, K1, K2, K4, P4, Q5
 coords <- data.frame(x=deer[deer$AnimalID=="K2",]$Easting, y = deer[deer$AnimalID=="K2",]$Northing, times=deer[deer$AnimalID=="K2",]$Time, id=deer[deer$AnimalID=="K2",]$AnimalID)
 trj <- TrajFromCoords(coords)
-plot(trj)
 
 
 TrajStraightness(trj)

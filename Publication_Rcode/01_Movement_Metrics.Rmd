@@ -48,7 +48,6 @@ res2 <- as.data.frame(res) #convert to dataframe
 
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
 ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
-times <- collars$TimeStamp[duplicated(collars$TimeStamp)] 
 plot(ltraj) #quick check to view all collars
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
@@ -154,8 +153,6 @@ res2 <- as.data.frame(res) #convert to dataframe
 
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
 ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
-times <- collars$TimeStamp[duplicated(collars$TimeStamp)] 
-plot(ltraj) #quick check to view all collars
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
 
@@ -263,8 +260,6 @@ res2 <- as.data.frame(res) #convert to dataframe
 
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
 ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
-times <- collars$TimeStamp[duplicated(collars$TimeStamp)] 
-plot(ltraj) #quick check to view all collars
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
 
@@ -372,8 +367,6 @@ res2 <- as.data.frame(res) #convert to dataframe
 
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
 ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
-times <- collars$TimeStamp[duplicated(collars$TimeStamp)] 
-plot(ltraj) #quick check to view all collars
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
 

@@ -43,7 +43,7 @@ bci <- bci.all[,c(1,2,6,9,10,12)]#remove unneeded columns
 variables.to.standardize <- bci[,c(2,6)]
 variables.standardized <- matrix(ncol=2, nrow=length(variables.to.standardize$BCI))
 
-#Standardize non categorical predictor varaibles
+#Standardize non categorical predictor variables
 for (i in 1:1){
   for(i in 1:length(variables.to.standardize)){
   variables.standardized[,i] <- scale(variables.to.standardize[,i], center=T, scale=T)
