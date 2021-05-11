@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This script is meant to calculate different movement metrics for deer GPS points. Bucks and does are run separately because of a difference in fix rate (1 hour for does, 2 hours for bucks). Additional information on some of the movement metric code can be found (here)[https://www.danaseidel.com/MovEco-R-Workshop/Materials/Day6/Behavioral_Analysis/]. 
 
-#Install Pacages & Load Libraries
+# Install Packages & Load Libraries
 ```{r}
 packages <- c('adehabitatHR','adehabitatLT','lubridate','plyr','rgeos','here','rgdal')
 
@@ -28,9 +28,37 @@ install_load <- function(packages){
 install_load(packages)
 ```
 
+# Establish functions for RT and T2R
+
+```{r}
+RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
+  fR <- function(x, dframe, radius, maxt, units=units){
+    tmp <- dframe[c(x:nrow(dframe)),]
+    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
+    dists <- as.numeric(dists<=radius)
+    ext <- which(dists[-length(dists)] > dists[-1])+1
+    entr <-  which(dists[-length(dists)] < dists[-1])+1
+    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
+    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
+    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
+    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
+    return(c(tmp1, tmp2))
+  } 
+  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
+  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
+  
+  if (!addinfo) return(res)
+  if (addinfo) {
+    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
+    return(x) 
+  }
+}
+```
+
+
 # Pre-fire Doe
 ```{r}
-collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefiredoe.csv')) #load in datafram
+collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefiredoe.csv')) #load in dataframe
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
 ##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
@@ -54,7 +82,6 @@ ltraj4<- sett0(ltraj3, refda, 1, units = "hour")
 is.regular(ltraj4) #check that they are all 1 hour apart
 
 
-
 ##Turn Angle Correlation
 TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
 for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative") #compute correlogram for angular and linear descritpors of a movement path
@@ -62,28 +89,6 @@ TAC[i,] <- 1/(SA[[1]][1,])} #Compute turn angle correlation
 View(TAC) 
 
 ##RT & T2R
-RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
-  fR <- function(x, dframe, radius, maxt, units=units){
-    tmp <- dframe[c(x:nrow(dframe)),]
-    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
-    dists <- as.numeric(dists<=radius)
-    ext <- which(dists[-length(dists)] > dists[-1])+1
-    entr <-  which(dists[-length(dists)] < dists[-1])+1
-    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
-    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
-    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
-    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
-    return(c(tmp1, tmp2))
-  } 
-  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
-  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
-  
-  if (!addinfo) return(res)
-  if (addinfo) {
-    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
-    return(x) 
-  }
-}
 lres <- list()
 for (j in 1:length(ltraj)){
   res <- ltraj4[[j]][,c("x","y","date")]
@@ -146,9 +151,6 @@ ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
 
-
-
-
 refda<- strptime("00:00", "%H:%M", tz="UTC") 
 refda
 ltraj3 <- setNA(ltraj, refda, 1, units = "hour")
@@ -164,28 +166,6 @@ TAC[i,] <- 1/(SA[[1]][1,])}
 View(TAC)
 
 ##RT & T2R
-RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
-  fR <- function(x, dframe, radius, maxt, units=units){
-    tmp <- dframe[c(x:nrow(dframe)),]
-    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
-    dists <- as.numeric(dists<=radius)
-    ext <- which(dists[-length(dists)] > dists[-1])+1
-    entr <-  which(dists[-length(dists)] < dists[-1])+1
-    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
-    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
-    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
-    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
-    return(c(tmp1, tmp2))
-  } 
-  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
-  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
-  
-  if (!addinfo) return(res)
-  if (addinfo) {
-    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
-    return(x) 
-  }
-}
 lres <- list()
 for (j in 1:length(ltraj)){
   res <- ltraj4[[j]][,c("x","y","date")]
@@ -267,28 +247,6 @@ TAC[i,] <- 1/(SA[[1]][1,])}
 View(TAC)
 
 ##RT & T2R
-RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
-  fR <- function(x, dframe, radius, maxt, units=units){
-    tmp <- dframe[c(x:nrow(dframe)),]
-    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
-    dists <- as.numeric(dists<=radius)
-    ext <- which(dists[-length(dists)] > dists[-1])+1
-    entr <-  which(dists[-length(dists)] < dists[-1])+1
-    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
-    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
-    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
-    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
-    return(c(tmp1, tmp2))
-  } 
-  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
-  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
-  
-  if (!addinfo) return(res)
-  if (addinfo) {
-    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
-    return(x) 
-  }
-}
 lres <- list()
 for (j in 1:length(ltraj)){
   res <- ltraj4[[j]][,c("x","y","date")]
@@ -336,11 +294,8 @@ sumdist/(tot$freq[1]/24)
 
 # Post-fire Buck
 ```{r}
-
 collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfirebuck.csv')) #load in dataframe
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
-
-
 
 ##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
 xy <- collars[,c('Longitude','Latitude')]  ## get lat/long from data frame
@@ -355,16 +310,11 @@ ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
 
-
-
-
 refda<- strptime("00:00", "%H:%M", tz="UTC") 
 refda
 ltraj3 <- setNA(ltraj, refda, 2, units = "hour")
 ltraj4<- sett0(ltraj3, refda, 2, units = "hour")
 is.regular(ltraj4) #check that they are all 1 hour apart
-
-
 
 ##Turn Angle Correlation
 TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
@@ -373,28 +323,6 @@ TAC[i,] <- 1/(SA[[1]][1,])}
 View(TAC)
 
 ##RT & T2R
-RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
-  fR <- function(x, dframe, radius, maxt, units=units){
-    tmp <- dframe[c(x:nrow(dframe)),]
-    dists <- sqrt((tmp$x - tmp$x[1])^2 + (tmp$y - tmp$y[1])^2)
-    dists <- as.numeric(dists<=radius)
-    ext <- which(dists[-length(dists)] > dists[-1])+1
-    entr <-  which(dists[-length(dists)] < dists[-1])+1
-    bts <- difftime(tmp$date[entr], tmp$date[ext[c(1:length(entr))]], units=units)    
-    tmp1 <- as.numeric(difftime(tmp$date[ext[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first exit
-    if (is.na(tmp1) & length(ext)>0) tmp1 <- as.numeric(difftime(tmp$date[ext[length(ext)]], tmp$date[1], units=units))  
-    tmp2 <- as.numeric(difftime(tmp$date[entr[(as.numeric(bts)>maxt)][1]], tmp$date[1], units=units)) #first re-entry
-    return(c(tmp1, tmp2))
-  } 
-  res <- data.frame(do.call(rbind, lapply(c(1:nrow(x)), fR, dframe=x, radius=radius, maxt=maxt, units=units)))
-  names(res) <- c(paste("RT", radius, maxt, sep="_"), paste("T2R", radius, maxt, sep="_"))
-  
-  if (!addinfo) return(res)
-  if (addinfo) {
-    attributes(x)$infolocs <- cbind(attributes(x)$infolocs, res)
-    return(x) 
-  }
-}
 lres <- list()
 for (j in 1:length(ltraj)){
   res <- ltraj4[[j]][,c("x","y","date")]
@@ -436,5 +364,4 @@ sumdist/(tot$freq[1])
 sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
 tot <- count(ltraj4[[1]][[7]])
 sumdist/(tot$freq[1]/24)
-
 ```
