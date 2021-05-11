@@ -61,22 +61,14 @@ RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
 collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefiredoe.csv')) #load in dataframe
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
-##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-xy <- collars[,c('Longitude','Latitude')]  ## get lat/long from data frame
-coordinates(xy) <- c("Longitude", "Latitude")
-proj4string(xy) <- CRS("+proj=longlat +datum=WGS84") 
-res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84")) #UTM zone 10 - transforms lat/long to northing/easting
-res2 <- as.data.frame(res) #convert to dataframe
-
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
-ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
+ltraj <- as.ltraj(collars[, c("Easting", "Northing")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
 plot(ltraj) #quick check to view all collars
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
 
 
 refda<- strptime("00:00", "%H:%M", tz="UTC") 
-refda
 ltraj3 <- setNA(ltraj, refda, 1, units = "hour")
 ltraj4<- sett0(ltraj3, refda, 1, units = "hour")
 is.regular(ltraj4) #check that they are all 1 hour apart
@@ -130,7 +122,6 @@ sumdist/(tot$freq[1])
 sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
 tot <- count(ltraj4[[1]][[7]])
 sumdist/(tot$freq[1]/24)
-
 ```
 
 # Post-fire Doe
@@ -138,18 +129,11 @@ sumdist/(tot$freq[1]/24)
 collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfiredoe.csv')) #load in datafram
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
-##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-xy <- collars[,c('Longitude','Latitude')]  ## get lat/long from data frame
-coordinates(xy) <- c("Longitude", "Latitude")
-proj4string(xy) <- CRS("+proj=longlat +datum=WGS84") 
-res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84")) #UTM zone 10 - transforms lat/long to northing/easting
-res2 <- as.data.frame(res) #convert to dataframe
-
-
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
-ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
+ltraj <- as.ltraj(collars[, c("Easting", "Northing")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
+plot(ltraj)
 
 refda<- strptime("00:00", "%H:%M", tz="UTC") 
 refda
@@ -216,19 +200,11 @@ sumdist/(tot$freq[1]/24)
 collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefirebuck.csv')) #load in datafram
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
-##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-xy <- collars[,c('Longitude','Latitude')]  ## get lat/long from data frame
-coordinates(xy) <- c("Longitude", "Latitude")
-proj4string(xy) <- CRS("+proj=longlat +datum=WGS84") 
-res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84")) #UTM zone 10 - transforms lat/long to northing/easting
-res2 <- as.data.frame(res) #convert to dataframe
-
-
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
-ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
+ltraj <- as.ltraj(collars[, c("Easting", "Northing")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
-
+plot(ltraj)
 
 
 
@@ -297,18 +273,11 @@ sumdist/(tot$freq[1]/24)
 collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfirebuck.csv')) #load in dataframe
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
-##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-xy <- collars[,c('Longitude','Latitude')]  ## get lat/long from data frame
-coordinates(xy) <- c("Longitude", "Latitude")
-proj4string(xy) <- CRS("+proj=longlat +datum=WGS84") 
-res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84")) #UTM zone 10 - transforms lat/long to northing/easting
-res2 <- as.data.frame(res) #convert to dataframe
-
-
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
-ltraj <- as.ltraj(res2[, c("Longitude", "Latitude")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
+ltraj <- as.ltraj(collars[, c("Easting", "Northing")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
 ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
 df <- ld(ltraj)
+plot(ltraj)
 
 refda<- strptime("00:00", "%H:%M", tz="UTC") 
 refda
