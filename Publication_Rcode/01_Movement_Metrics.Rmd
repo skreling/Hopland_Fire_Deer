@@ -29,7 +29,12 @@ install_load(packages)
 ```
 
 # Establish functions for RT and T2R
+Functions for calculating Mean return time and mean time to return for gps collar data. Source functions can be found (here)[https://www.danaseidel.com/MovEco-R-Workshop/Materials/Day6/Syndromes/]. From site: 
+Residence time = the number of hours the animal spends inside a circle of a given radius centered on each location without leaving the radius for more than a specified cut-off time
 
+Time-to-return = the number of hours the animal spends beyond a specified cut-off time before its return to a circle of a given radius centered on each location
+
+Adapted from van Moorter et al. 2015, Journal of Animal Ecology
 ```{r}
 RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
   fR <- function(x, dframe, radius, maxt, units=units){
@@ -61,6 +66,7 @@ RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
 collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefiredoe.csv')) #load in dataframe
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
+
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
 ltraj <- as.ltraj(collars[, c("Easting", "Northing")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
 plot(ltraj) #quick check to view all collars
@@ -76,7 +82,7 @@ is.regular(ltraj4) #check that they are all 1 hour apart
 
 ##Turn Angle Correlation
 TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
-for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative") #compute correlogram for angular and linear descritpors of a movement path
+for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative") #compute correlogram for angular and linear descriptors of a movement path
 TAC[i,] <- 1/(SA[[1]][1,])} #Compute turn angle correlation
 View(TAC) 
 
@@ -115,13 +121,13 @@ MNSD
 
 #Meters/Hour - Change the  number in the first bracket for each deer
 ##to change the collar number - dist/dt
-sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
-tot <- count(ltraj4[[1]][[7]])
-sumdist/(tot$freq[1])
+# dt is seconds per hour
+sumdist <- sum(ltraj4[[16]][[6]], na.rm = TRUE)
+tot.hour <- nrow(ltraj4[[16]])
+meters.hour <- sumdist/tot.hour
+
 #Meters/Day
-sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
-tot <- count(ltraj4[[1]][[7]])
-sumdist/(tot$freq[1]/24)
+meters.day <- meters.hour*24
 ```
 
 # Post-fire Doe
@@ -184,14 +190,12 @@ MNSD
 
 #Meters/Hour - Should just put in forloop but if not just change the first number in the bracket
 ##to change the collar number - dist/dt
-sumdist <- sum(ltraj4[[3]][[6]], na.rm = TRUE)
-tot <- count(ltraj4[[3]][[7]])
-sumdist/(tot$freq[1])
-#Meters/Day
-sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
-tot <- count(ltraj4[[1]][[7]])
-sumdist/(tot$freq[1]/24)
+sumdist <- sum(ltraj4[[16]][[6]], na.rm = TRUE)
+tot.hour <- nrow(ltraj4[[16]])
+sumdist/tot.hour
 
+#Meters/Day
+meters.day <- meters.hour*24
 ```
 
 
@@ -257,13 +261,11 @@ MNSD
 
 #Meters/Hour -  change the first number in the bracket
 ##to change the collar number - dist/dt
-sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
-tot <- count(ltraj4[[1]][[7]])
-sumdist/(tot$freq[1])
-#Meters/Day
-sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
-tot <- count(ltraj4[[1]][[7]])
-sumdist/(tot$freq[1]/24)
+sumdist <- sum(ltraj4[[2]][[6]], na.rm = TRUE)
+tot.hour <- nrow(ltraj4[[2]])*2 # x2 for bucks because fix rate is every 2 hours
+meters.hour <- sumdist/tot.hour
+
+meters.day <- meters.hour*24
 
 ```
 
@@ -327,10 +329,8 @@ MNSD
 #Meters/Hour -  change the first number in the bracket
 ##to change the collar number - dist/dt
 sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
-tot <- count(ltraj4[[1]][[7]])
-sumdist/(tot$freq[1])
-#Meters/Day
-sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
-tot <- count(ltraj4[[1]][[7]])
-sumdist/(tot$freq[1]/24)
+tot.hour <- nrow(ltraj4[[1]])*2 # x2 for bucks because fix rate is every 2 hours
+meters.hour <- sumdist/tot.hour
+
+meters.day <- meters.hour*24
 ```
