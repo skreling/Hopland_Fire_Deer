@@ -29,7 +29,9 @@ install_load(packages)
 ```
 
 # Establish functions for RT and T2R
-Functions for calculating Mean return time and mean time to return for gps collar data. Source functions can be found (here)[https://www.danaseidel.com/MovEco-R-Workshop/Materials/Day6/Syndromes/]. From site: 
+Functions for calculating Mean return time and mean time to return for gps collar data. This function calculates these two movement metrics for an indivdiual and will later be placed into a forloop to calculate the metrics for all individuals in a ltraj object.f
+
+Source functions can be found (here)[https://www.danaseidel.com/MovEco-R-Workshop/Materials/Day6/Syndromes/]. From site: 
 Residence time = the number of hours the animal spends inside a circle of a given radius centered on each location without leaving the radius for more than a specified cut-off time
 
 Time-to-return = the number of hours the animal spends beyond a specified cut-off time before its return to a circle of a given radius centered on each location
