@@ -5,28 +5,18 @@ library(tidyverse)
 
 # Clean collar data -------------------------------------------------------
 
-predoe <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefiredoe.csv')) %>% 
-  filter(AnimalID != "H1") %>% 
-  select(-c("X", "X.1"))
+pre <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefire.csv')) %>% 
+  select(c("AnimalID", "Latitude", "Longitude", "TimeStamp", "Easting", "Northing", "Sex")) %>% 
+  filter(Latitude < 39.2) # removes that one erroneous point
 
-postdoe <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfiredoe.csv')) %>% 
-  filter(AnimalID != "H1") %>% 
-  select(-c("X", "X.1"))
-
-prebuck <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefirebuck.csv')) %>% 
-  select(-c("X", "X.1"))
-
-postbuck <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfirebuck.csv')) %>% 
-  select(-c("X", "X.1"))
+post <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfire.csv')) %>% 
+  select(c("AnimalID", "Latitude", "Longitude", "TimeStamp", "Easting", "Northing", "Sex"))
 
 # confirmed that all are complete cases
 
 # rewrite files
-write.csv(predoe, "Publication_Data/Collars/deer-gps-prefiredoe.csv", row.names = F)
-write.csv(postdoe, "Publication_Data/Collars/deer-gps-postfiredoe.csv", row.names = F)
-write.csv(prebuck, "Publication_Data/Collars/deer-gps-prefirebuck.csv", row.names = F)
-write.csv(prebuck, "Publication_Data/Collars/deer-gps-postfirebuck.csv", row.names = F)
-
+write.csv(pre, "Publication_Data/Collars/deer-gps-prefire.csv", row.names = F)
+write.csv(post, "Publication_Data/Collars/deer-gps-postfire.csv", row.names = F)
 
 
 # Clean BCI data ----------------------------------------------------------
