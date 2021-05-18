@@ -1,11 +1,11 @@
 library(rgdal)
-library(rgeos) #get centroid
+library(rgeos)
 library(sp)
 library(raster)
 library(dplyr)
 library(proxy)
 library(here)
-
+library(adehabitatHR)
 
 # Calculate distance moved during fire ------------------------------------
 
@@ -15,7 +15,7 @@ library(here)
 # only the values of displacement between pre and post-fire individual deer.
 
 distances <- read.csv(here::here("Publication_Data",'Collars','distances.csv'))
-distances.same.deer <- distances[c(distances$TargetID==distances$InputID),]
+(distances.same.deer <- distances[c(distances$TargetID==distances$InputID),])
 write.csv(distances.same.deer,'Distances_During_Fire_QGIS.csv')
 
 
