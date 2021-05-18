@@ -1,6 +1,8 @@
 ---
 title: "MCP Generation"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -27,43 +29,46 @@ install_load(packages)
 ```
 
 # Pre-fire Deer MCP and Centroids
+
+## Pre-fire
 ```{r}
 #This script was used to generate MCPs
-collars <- read.csv(here::here("Publication_Data","Collars","deer-gps-prefire.csv")) #load in pre-fire dataframe
-collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "America/Los_Angeles") #create date object from time stamp
+prefire <- read.csv(here::here("Publication_Data","Collars","deer-gps-prefire.csv")) #load in pre-fire dataframe
 
-##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-collars.spdf <- collars #copy dataframe
-collars.spdf<- SpatialPointsDataFrame(coords=as.data.frame(cbind(collars.spdf$Longitude, collars.spdf$Latitude)), data=collars.spdf, proj4string=CRS("+proj=longlat +datum=WGS84")) #create spatial points dataframe
-collars.spdf<-spTransform(collars.spdf,CRS("+proj=utm +zone=10 ellps=WGS84") )#reproject dataframe into UTM Zone 10 instead of WGS84
+# Create SPDF
+prefire.spdf <- SpatialPointsDataFrame(coords=as.data.frame(cbind(prefire$Easting, prefire$Northing)), 
+                                       data=prefire,
+                                       proj4string=CRS("+proj=utm +zone=10 ellps=WGS84")) #create spatial points dataframe
 
-collars.mcppre <- mcp(collars.spdf[,"AnimalID"], percent=95, unin="m", unout="km2") # create 95% mcp for each animal in km^2
-plot(collars.mcppre, col=c(1:18))  #show plot of all deer mcps
+# Calculate MCP
+prefire.mcp <- mcp(prefire.spdf[,"AnimalID"], percent=95, unin="m", unout="km2") # create 95% mcp for each animal in km^2
+plot(prefire.mcp, col=c(1:length(unique(prefire$AnimalID))))  #show plot of all deer mcps
 
-trueCentroids <- gCentroid(collars.mcppre, byid=TRUE) #get centroid of each mcp
-trueCentroids1 <- as.data.frame(trueCentroids) #get coordinates for centroids
-trueCentroids1$Time <- 'Pre'
-
+trueCentroidsPre <- as.data.frame(gCentroid(prefire.mcp, byid=TRUE)) # get centroid of each mcp
+trueCentroidsPre$Time <- 'Pre'
 ```
+
+## Post-fire
+```{r}
+#This script was used to generate MCPs
+postfire <- read.csv(here::here("Publication_Data","Collars","deer-gps-postfire.csv")) #load in pre-fire dataframe
+
+# Create SPDF
+postfire.spdf <- SpatialPointsDataFrame(coords=as.data.frame(cbind(postfire$Easting, postfire$Northing)), 
+                                       data=postfire,
+                                       proj4string=CRS("+proj=utm +zone=10 ellps=WGS84")) #create spatial points dataframe
+
+# Calculate MCP
+postfire.mcp <- mcp(postfire.spdf[,"AnimalID"], percent=95, unin="m", unout="km2") # create 95% mcp for each animal in km^2
+plot(postfire.mcp, col=c(1:length(unique(postfire$AnimalID))))  #show plot of all deer mcps
+
+trueCentroidsPost <- as.data.frame(gCentroid(postfire.mcp, byid=TRUE)) # get centroid of each mcp
+trueCentroidsPost$Time <- 'Post'
+```
+
 
 # Post-fire Deer MCP and Centroids
 ```{r}
-#This script was used to generate MCPs
-collars <- read.csv(here::here("Publication_Data","Collars","deer-gps-postfire.csv"))
-collars$TimeStamp <- as.POSIXct((collars$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "America/Los_Angeles")
-
-##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-collars.spdf <- collars
-collars.spdf<- SpatialPointsDataFrame(coords=as.data.frame(cbind(collars.spdf$Longitude, collars.spdf$Latitude)), data=collars.spdf, proj4string=CRS("+proj=longlat +datum=WGS84"))
-collars.spdf<-spTransform(collars.spdf,CRS("+proj=utm +zone=10 ellps=WGS84") )
-
-collars.mcppre <- mcp(collars.spdf[,"AnimalID"], percent=95, unin="m", unout="km2") # create 95% mcp for each animal in km^2
-plot(collars.mcppre, col=c(1:18)) #plot mcps. Note that this is not the true value for Doe J3, we will cacluate it below
-
-trueCentroids <- gCentroid(collars.mcppre, byid=TRUE) #get centroid of each mcp
-trueCentroids2 <- as.data.frame(trueCentroids) #get coordinates for centroids
-trueCentroids2$Time <- 'Post'
-
 # Calculation for Doe J3
 collars.J3 <-collars[collars$AnimalID=='J3',]
 collars.J3 <- collars.J3[-c(501:555),]#want to remove the last 54 points from the dataframe that represent the return to homerange
