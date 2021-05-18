@@ -4,43 +4,49 @@ library(sp)
 library(raster)
 library(dplyr)
 library(proxy)
-
-#This script is used to create distance matrices between homeranges centroids pre and post fire
-
+library(here)
 
 
-#read in mcp shapefiles
+# Calculate distance moved during fire ------------------------------------
+
+# Using the files 'far.csv' and 'MCP_Centroids.csv' (found in 'Collars' under 'Publication_Data'), 
+# we created a distance matrix in QGIS. To do this, we filtered the MCP centroids to only pre-fire 
+# homerange centroids and used the 'distance matrix' function in base QGIS. Here we will extract 
+# only the values of displacement between pre and post-fire individual deer.
+
+distances <- read.csv(here::here("Publication_Data",'Collars','distances.csv'))
+distances.same.deer <- distances[c(distances$TargetID==distances$InputID),]
+write.csv(distances.same.deer,'Distances_During_Fire_QGIS.csv')
+
+
+
+# Create distance matrices between home range centroids pre- and post fire ------
+
+# Read in mcp shapefiles
 predoe <- readOGR(here::here("Publication_Data","Collars","MCPs","mcppredoe.shp"))
 postdoe <- readOGR(here::here("Publication_Data","Collars","MCPs","mcppostdoe1.shp"))
 prebuck <- readOGR(here::here("Publication_Data","Collars","MCPs","prebuckmcp.shp"))
 postbuck <- readOGR(here::here("Publication_Data","Collars","MCPs","postbuckmcp.shp"))
 
-#Get a centroid for each shapefile layer, byid will take a centroid for each animalID 
-Cpredoe <- gCentroid(predoe, byid=TRUE)
-Cpostdoe <- gCentroid(postdoe, byid=TRUE)
-Cprebuck <- gCentroid(prebuck, byid=TRUE)
-Cpostbuck <- gCentroid(postbuck, byid=TRUE)
+# Get a centroid for each shapefile layer, byid will take a centroid for each animalID 
+Cpredoe <- as.data.frame(gCentroid(predoe, byid=TRUE))
+Cpostdoe <- as.data.frame(gCentroid(postdoe, byid=TRUE))
+Cprebuck <- as.data.frame(gCentroid(prebuck, byid=TRUE))
+Cpostbuck <- as.data.frame(gCentroid(postbuck, byid=TRUE))
 
-#Turn centrids into list of coords dataframe
-Cpredoe1 <- as.data.frame(Cpredoe)
-Cpostdoe1 <- as.data.frame(Cpostdoe)
-Cprebuck1 <- as.data.frame(Cprebuck)
-Cpostbuck1 <- as.data.frame(Cpostbuck)
+# Create distance between centroid matrix 
+distmatrixdoe <- proxy::dist(Cpredoe, Cpostdoe, method="euclidean")
+distmatrixbuck <- proxy::dist(Cprebuck, Cpostbuck, method="euclidean")
 
-#creates distance between centroid matrix - we only want diagnol 
-distmatrixdoe <- proxy::dist(Cpredoe1,Cpostdoe1 , method="euclidean")
-distmatrixbuck <- proxy::dist(Cprebuck1, Cpostbuck1, method="euclidean")
-
-#extract just diagnol from matrix
+# Extract just diagnol from matrix
 doedist <- diag(distmatrixdoe)
 buckdist <- diag(distmatrixbuck)
 
-
-#averages
-mean(doedist)#140.12
-mean(buckdist)#33.118
-sd(doedist)#67.442
-sd(buckdist)#4.22 
+# Calculate summary stats for does and bucks
+mean(doedist) # 140.12
+mean(buckdist) # 33.118
+sd(doedist) # 67.442
+sd(buckdist) # 4.22 
 
 
 #################################################
