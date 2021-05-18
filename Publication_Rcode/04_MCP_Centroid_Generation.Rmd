@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 This script creates MCP centroids for all deer pre and post fire
 
 ```{r}
-packages <- c('adehabitatHR','adehabitatLT','lubridate','plyr','rgeos','here','rgdal', 'sp', 'dplyr','raster','proxy','tibble')
+packages <- c('adehabitatHR','adehabitatLT','lubridate','plyr','rgeos','here','rgdal', 'sp', 'dplyr','raster','proxy','tibble','stringr')
 
 install_load <- function(packages){
      for (p in packages) {
@@ -32,7 +32,7 @@ install_load(packages)
 
 ## Pre-fire
 ```{r}
-#This script was used to generate MCPs
+# This script was used to generate MCPs
 prefire <- read.csv(here::here("Publication_Data","Collars","deer-gps-prefire.csv")) #load in pre-fire dataframe
 
 # Create SPDF
@@ -50,8 +50,10 @@ trueCentroidsPre$Time <- 'Pre'
 
 ## Post-fire
 ```{r}
-#This script was used to generate MCPs
 postfire <- read.csv(here::here("Publication_Data","Collars","deer-gps-postfire.csv")) #load in pre-fire dataframe
+
+# Remove J3 'during fire' points from home range analysis (due to high displacement) 
+postfire <- postfire[-c(5715:5768),]
 
 # Create SPDF
 postfire.spdf <- SpatialPointsDataFrame(coords=as.data.frame(cbind(postfire$Easting, postfire$Northing)), 
@@ -67,39 +69,22 @@ trueCentroidsPost$Time <- 'Post'
 ```
 
 
-# Post-fire Deer MCP and Centroids
-```{r}
-# Calculation for Doe J3
-collars.J3 <-collars[collars$AnimalID=='J3',]
-collars.J3 <- collars.J3[-c(501:555),]#want to remove the last 54 points from the dataframe that represent the return to homerange
-
-collars.J3$TimeStamp <- as.POSIXct((collars.J3$Time), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "America/Los_Angeles")
-
-##Extract XY coordinates, then tell system original CRS and transform into UTM for meteres and convert to spatial points, then convert spatial points back into dataframe
-collars.spdf <- collars.J3
-collars.spdf<- SpatialPointsDataFrame(coords=as.data.frame(cbind(collars.spdf$Longitude, collars.spdf$Latitude)), data=collars.spdf, proj4string=CRS("+proj=longlat +datum=WGS84"))
-collars.spdf<-spTransform(collars.spdf,CRS("+proj=utm +zone=10 ellps=WGS84") )
-
-collars.mcppre <- mcp(collars.spdf[,"AnimalID"], percent=95, unin="m", unout="km2") # create 95% mcp for each animal in km^2
-plot(collars.mcppre, col=c(1:18)) #plot mcps. Note that this is not the true value for Doe J3, we will cacluate it below
-
-trueCentroids <- gCentroid(collars.mcppre, byid=TRUE) #get centroid of each mcp
-trueCentroidsJ3 <- as.data.frame(trueCentroids) #get coordinates for centroids
-trueCentroidsJ3$Time <- 'Post'
-
-```
-
 # All Centroids
 Merge all centroids to create dataframe of centroid locations
 ```{r}
-all.centroids <- bind_rows(trueCentroids1, trueCentroids2) # combine the 2 dataframes
-all.centroids <- all.centroids[-30,] #remove original J3 value
-all.centroids <- bind_rows(all.centroids, trueCentroidsJ3) #replace with J3 value with  the correct number of points in dataframe
-all.centroids<- all.centroids[order(rownames(all.centroids)),] #ordr by rowname (animal id)
-all.centroids<- all.centroids[order(all.centroids$Time),]# order by time period
+all.centroids <- bind_rows(trueCentroidsPre, trueCentroidsPost) # combine the 2 dataframes
+all.centroids <- all.centroids[order(rownames(all.centroids)),] #order by rowname (animal id)
+all.centroids <- all.centroids[order(all.centroids$Time),]# order by time period
 
-far <- read.csv(here::here('Publication_Data','Collars',"Far.csv")) # just loading this in for the animal ids
-far <- far[order(far$AnimalID),] #Order dataframe based on animal id
-all.centroids$AnimalID <- rep(far$AnimalID,2) #create a column of animal ids
-#write.csv(all.centroids, here::here('Publication_Data','Collars','MCP_Centroid.csv'))
+# create column for ID - requires some weird formatting fixes
+all.centroids$AnimalID <- row.names(all.centroids)
+all.centroids$AnimalID <- substr(all.centroids$AnimalID, start = 1, stop = 2)
+
+# fix the three-character deer
+all.centroids$AnimalID <- as.factor(all.centroids$AnimalID)
+levels(all.centroids$AnimalID)[levels(all.centroids$AnimalID)=="A5"] ="A5b"
+levels(all.centroids$AnimalID)[levels(all.centroids$AnimalID)=="D3"] ="D3b"
+
+head(all.centroids)
+#write.csv(all.centroids, here::here('Publication_Data','Collars','MCP_Centroid.csv'), row.names = F)
 ```
