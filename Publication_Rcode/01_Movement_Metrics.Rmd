@@ -84,6 +84,9 @@ postfirebuck <- postfire[postfire$Sex=="Buck",]
 collars <- prefiredoe
 #collars <- postfiredoe
 
+# drop unused factor levels to avoid ltraj error
+collars$AnimalID <- droplevels(collars$AnimalID)
+
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
@@ -156,6 +159,9 @@ meters.day <- meters.hour*24
 # repeat code below for both pre-fire doe and post-fire doe
 collars <- prefirebuck
 #collars <- postfirebuck
+
+# drop unused factor levels to avoid ltraj error
+collars$AnimalID <- droplevels(collars$AnimalID)
 
 collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefirebuck.csv')) #load in datafram
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
