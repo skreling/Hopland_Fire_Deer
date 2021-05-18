@@ -63,13 +63,23 @@ RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
 }
 ```
 
+# Import data
+
+```{r}
+prefire <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefire.csv'))
+postfire <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfire.csv'))
+
+# split for bucks and does
+prefiredoe <- prefire[prefire$Sex=="Doe",]
+prefirebuck <- prefire[prefire$Sex=="Buck",]
+postfiredoe <- postfire[postfire$Sex=="Doe",]
+postfirebuck <- postfire[postfire$Sex=="Buck",]
+```
+
 
 # Calculate metrics for does
 
 ```{r}
-prefiredoe <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefiredoe.csv'))
-postfiredoe <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfiredoe.csv'))
-
 # repeat code below for both pre-fire doe and post-fire doe
 collars <- prefiredoe
 #collars <- postfiredoe
@@ -143,9 +153,6 @@ meters.day <- meters.hour*24
 # Calculate metrics for bucks
 
 ```{r}
-prefirebuck <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefirebuck.csv'))
-postfirebuck <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfirebuck.csv'))
-
 # repeat code below for both pre-fire doe and post-fire doe
 collars <- prefirebuck
 #collars <- postfirebuck
