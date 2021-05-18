@@ -1,14 +1,17 @@
 ---
 title: "Homerange_Isopleth_Generation"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 # Load libraries
 ```{r}
-packages <- c('tlocoh.dev','sp','rgdal','rgeos','maptools','pander')
+packages <- c('sp','rgdal','rgeos','maptools','pander')
 
 install_load <- function(packages){
      for (p in packages) {
@@ -23,9 +26,8 @@ install_load <- function(packages){
 
 install_load(packages)
 
-# tlocoh package on R CRAN is not compatible with newer versions of R, but exists in compatible form on another repo
-installed.packages('tlocoh')
-library(tlocoh)
+# install tlocoh from source
+install.packages("tlocoh", dependencies=TRUE, repos=c("http://R-Forge.R-project.org", "http://cran.cnr.berkeley.edu"), type="source")
 ```
 
 # Deer Pre Fire
