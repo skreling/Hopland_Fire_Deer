@@ -1,0 +1,1077 @@
+---
+title: "Deer RSF Pre and Post Fire"
+author: "Kaitlyn"
+date: "5/28/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = F, warning = F, error = FALSE)
+```
+
+### Set up, import data
+
+```{r}
+library(lme4)
+library(MuMIn)
+library(caret)
+library(ROCR)
+library(tidyverse)
+library(raster)
+library(rgdal)
+library(car)
+
+`%notin%` <- Negate(`%in%`)
+```
+
+
+Read in dataframe and fix issues. (Don't rename columns, so they match raster stack.)
+```{r}
+all_data <- read.csv("data/RSF_NEW_12.2020/all.steps.extracted.normalized.multisurvveg.csv") %>% 
+  drop_na() %>% # drop points where J3 was pushed over the hill; lso drop 2 points for J1, 4 for P4, and 5 for Q5
+  mutate(veg = as.factor(veg), # specify factors
+         survveg.1 = as.factor(survveg.1),
+         survveg.3 = as.factor(survveg.3)) %>% 
+  mutate(veg = fct_recode(veg, `2` = "0")) %>% # address the 11 points at the edge that were coded as 0 but are actually in chaparral (level = 2)
+  mutate(veg = fct_relevel(veg, "1", "2", "3")) 
+
+# woodland (1), chaparral (2), grassland (3) 
+```
+
+Sex is missing, so let's strip it from the OLD version of the data and merge it in
+```{r}
+sex_key <- read.csv("data/all_locations_with_norm_metadata.csv") %>% 
+  dplyr::select(AnimalID, Sex) %>% 
+  unique()
+
+all_data <- left_join(all_data, sex_key, by = "AnimalID")
+```
+
+Filter dataframes by time period
+```{r}
+PreAll <- filter(all_data, Period == "Pre") 
+PostAll <- filter(all_data, Period == "Post") 
+```
+
+Read in raster stacks, masked to study areas, for later validation.
+```{r}
+# bring in raw file for names (didn't export for some reason)
+prestack_doe <- stack("data/RSF_NEW_12.2020/Area_Rasters/PreDoeStack2.grd")
+
+# bring in the 13 individual stacks cropped to each deer's home range
+individual_stacks <- list()
+for (i in 1:13) {
+  
+  file_name <- paste("data/RSF_NEW_12.2020/Area_Rasters/individual_rasters/Stack_",
+                     levels(all_data$AnimalID)[i], ".grd", sep = "")
+  
+  individual_stacks[[i]] <- stack(file_name)
+  
+  names(individual_stacks[[i]]) <- names(prestack_doe)
+}
+
+names(individual_stacks) <- levels(all_data$AnimalID)
+```
+
+Store factor levels in list (needed for predicting the model with the raster stack in validation and covariate plots)
+```{r}
+veg.levels <- list(levels(all_data$veg))
+names(veg.levels) <- "veg"
+
+survveg.1.levels <- list(levels(all_data$survveg.1))
+names(survveg.1.levels) <- "survveg.1"
+
+survveg.3.levels <- list(levels(all_data$survveg.3))
+names(survveg.3.levels) <- "survveg.3"
+```
+
+
+
+### Model Selection
+
+#### Narrowing in on covariates
+
+Let's see what surviving vegetation layer is best.
+survveg.1 is the rounding at 0.5
+survveg.2 is the continuous
+survveg.3 is the rounding > 0
+```{r, eval = F}
+# conservative binary factor
+glmer(Case ~ survveg.1 + (1|AnimalID), family = "binomial", data = PostAll)      # 27371.31
+
+# continuous
+glmer(Case ~ survveg.2 + (1|AnimalID), family = "binomial", data = PostAll)      # 27246.44
+
+# liberal binary factor - BEST ONE.
+glmer(Case ~ survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)      # 27010.85 
+```
+
+
+#### Pre-Fire Models
+
+Let's try backwards selection again.
+
+```{r, eval = F}
+(PreNull <- glmer(Case ~ (1|AnimalID), family = "binomial", data = PreAll))                                                                                     # 30303.20
+
+(PreFull <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + Sex + (1|AnimalID), family = "binomial", data = PreAll))    # 30107.17
+  
+# stepping backward from full model
+(PreModel1.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + Sex + (1|AnimalID), family = "binomial", data = PreAll))      #  30123.08
+(PreModel1.2 <- glmer(Case ~ veg + slope + east + north + rugged + water + Sex + (1|AnimalID), family = "binomial", data = PreAll))            # 30140.95
+(PreModel1.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + Sex + (1|AnimalID), family = "binomial", data = PreAll))        # 30166.65
+(PreModel1.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + Sex + (1|AnimalID), family = "binomial", data = PreAll))                             # 30163.71
+(PreModel1.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + Sex + (1|AnimalID), family = "binomial", data = PreAll))           # 30110.71
+(PreModel1.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + Sex + (1|AnimalID), family = "binomial", data = PreAll))         # 30118.21
+(PreModel1.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll))      # 30105.61 - best of this batch (no Sex)
+
+# stepping backwards from PreModel1.7 - none improve on 1.7, still the best
+(PreModel2.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30121.54 *
+(PreModel2.2 <- glmer(Case ~ veg + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30138.98 *
+(PreModel2.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30165.17  *
+(PreModel2.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30162.46 *
+(PreModel2.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30109.23 *
+(PreModel2.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + (1|AnimalID), family = "binomial", data = PreAll)) # 30116.76 *
+```
+
+
+#### Post-Fire Models
+
+
+```{r, eval = F}
+(PostNull <- glmer(Case ~ (1|AnimalID), family = "binomial", data = PostAll))                                                                            # 27762.54 *
+
+(PostFull <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26152.42 *
+vif(PostFull)
+
+# stepping backward from full model
+(PostModel1.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26761.53 *
+(PostModel1.2 <- glmer(Case ~ veg + slope + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26191.72 *
+(PostModel1.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26160.10 *
+(PostModel1.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26213.70 *
+(PostModel1.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26262.57 *
+(PostModel1.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26163.90 *
+(PostModel1.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26568.19 *
+(PostModel1.8 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26150.56 # the best of the bunch
+
+# stepping backwards from PostModel1.8 - none improve on 1.8, still the best
+(PostFull2.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26759.72 *
+(PostFull2.2 <- glmer(Case ~ veg + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26189.99 *
+(PostFull2.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26158.23 *
+(PostFull2.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26211.79 *
+(PostFull2.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26260.66 *
+(PostFull2.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26162.02 *
+(PostFull2.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PostAll)) # 26566.35 *
+
+```
+
+
+
+### Interpretation of results
+
+```{r}
+best_model_pre <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)
+
+vif(best_model_pre) # check VIF
+summary(best_model_pre)
+```
+
+
+The best pre-fire model includes the following covariates:
+
+woodland = 1, chaparral = 2, grassland = 3
+
+* vegetation/habitat: greatest selection for chaparral (2), then woodland (1), then grassland (3)
+* elevation (+)
+* slope (-)
+* east (+)
+* north (+)
+* ruggedness (+)
+* distance to streambed/water (+)
+
+
+```{r}
+best_model_post <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)
+
+vif(best_model_post)
+summary(best_model_post)
+```
+
+
+The best post-fire model includes the following covariates:
+
+woodland = 1, chaparral = 2, grassland = 3
+
+* vegetation/habitat: greatest selection for woodland (1), then grassland (3), then chaparral (2)
+* elevation (+)
+* slope (-)
+* east (+)
+* north (+)
+* ruggedness (+)
+* distance to streambed/water (+)
+* surviving vegetation (+)
+
+
+Both pre and post fire, deer showed similar patterns of selection for elevation, slope, aspect, ruggedness, and distance to streambed.
+
+Notably, habitat selection patterns changed after the fire. The deer selected for woodland, then grassland, then chaparral. This makes sense, given that the woodland was the area with tree cover, and the other areas were burned to a crisp. Trees likely provided shade and shelter.
+
+Surviving vegetation is the strongest predictor in the post-fire models. This, I think, is the main take-away.
+
+
+### Covariate plots - HAVE NOT REVISITED
+
+#### Generate scaling parameters 
+
+So plot axes can be un-standardized. There has to be a better way to do this..... code hidden for markdown doc.
+
+```{r, echo = F}
+# bring in un-transformed metadata
+data_all_rasters <- read.csv("data/all_locations_with_untransformed_metadata.csv")
+
+# scale parameters from models
+all_data_norm <- data_all_rasters %>% 
+  mutate(elevation = base::scale(elevation, center = TRUE, scale = TRUE),
+         slope = base::scale(slope, center = TRUE, scale = TRUE),
+         water = base::scale(water, center = TRUE, scale = TRUE),
+         rugged = base::scale(rugged, center = TRUE, scale = TRUE),
+         east = base::scale(east, center=T, scale=T),
+         north = base::scale(north, center=T, scale=T)
+         )
+
+# Save your scale parameters for plotting
+elevation_scalelist <- list(scale = attr(all_data_norm$elevation, "scaled:scale"),
+                      center = attr(all_data_norm$elevation, "scaled:center"))
+slope_scalelist <- list(scale = attr(all_data_norm$slope, "scaled:scale"),
+                      center = attr(all_data_norm$slope, "scaled:center"))
+water_scalelist <- list(scale = attr(all_data_norm$water, "scaled:scale"),
+                      center = attr(all_data_norm$water, "scaled:center"))
+rugged_scalelist <- list(scale = attr(all_data_norm$rugged, "scaled:scale"),
+                      center = attr(all_data_norm$rugged, "scaled:center"))
+east_scalelist <- list(scale = attr(all_data_norm$east, "scaled:scale"),
+                      center = attr(all_data_norm$east, "scaled:center"))
+north_scalelist <- list(scale = attr(all_data_norm$north, "scaled:scale"),
+                      center = attr(all_data_norm$north, "scaled:center"))
+```
+
+
+#### Vegetation
+```{r, echo = F}
+veg <- data.frame(veg = c(1,2,3)) %>% 
+  mutate(east = 0,
+         north = 0,
+         rugged = 0,
+         elevation = 0,
+         slope = 0,
+         water = 0,
+         survveg.3 = 1)
+
+veg$veg <- as.factor(veg$veg)
+veg$survveg.3 <- as.factor(veg$survveg.3)
+
+veg$pre <- predict(best_model_pre, veg, type = "response", re.form=~0, factors = c(veg.levels))
+veg$post <- predict(best_model_post, veg, type = "response", re.form=~0, factors = c(veg.levels, survveg.3.levels))
+
+veg_long <- pivot_longer(veg, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
+
+ggplot(aes(x = model, y = coefficient, col = veg), data = veg_long) + 
+  geom_point(size = 3) +
+  theme_classic() +
+  ylim(0,.5) +
+  xlab("") +
+  ylab("Relative Selection Probability")
+
+veg_long
+
+```
+
+Post-fire
+0.343/0.147 # Deer 2.33 times more likely to be in woodland than chaparral
+
+Pre-fire
+0.200/0.181 # Deer 1.11 times more likely to be in chaparral than grassland
+
+#### Surviving Vegetation
+```{r, echo = F}
+survveg <- data.frame(survveg.2 = c(0,1)) %>% 
+  mutate(east = 0,
+         north = 0,
+         rugged = 0,
+         elevation = 0,
+         slope = 0,
+         water = 0,
+         veg = 1)
+
+survveg$veg <- as.factor(survveg$veg)
+survveg$survveg.2 <- as.factor(survveg$survveg.2)
+
+survveg$pre <- predict(best_model_pre, survveg, type = "response", re.form=~0, factors = c(veg.levels))
+survveg$post <- predict(best_model_post, survveg, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
+
+survveg_long <- pivot_longer(survveg, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
+
+ggplot(aes(x = model, y = coefficient, col = survveg.2), data = survveg_long) + 
+  geom_point(size = 3) +
+  theme_classic() +
+  ylim(0,.5) +
+  xlab("") +
+  ylab("Relative Selection Probability")
+
+survveg_long
+```
+
+.141/.0745 = 1.89 times more likely to be found in area of surviving vegetation
+
+#### Distance to streambed
+```{r, echo = F}
+water <- data.frame(water = seq(min(all_data$water, na.rm=T), max(all_data$water, na.rm=T), by = 0.1)) %>% 
+  mutate(east = 0,
+         north = 0,
+         elevation = 0,
+         rugged = 0,
+         slope = 0,
+         survveg.2 = 1,
+         veg = 1, 
+         water.unscaled = water * water_scalelist$scale + water_scalelist$center)
+
+water$veg <- as.factor(water$veg)
+water$survveg.2 <- as.factor(water$survveg.2)
+
+water$pre <- predict(best_model_pre, water, type = "response", re.form=~0, factors = c(veg.levels))
+water$post <- predict(best_model_post, water, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
+
+water_long <- pivot_longer(water, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
+
+ggplot(aes(x = water.unscaled, y = coefficient, col = model), data = water_long) + 
+  geom_line(size = 1.5) +
+  theme_classic() +
+  ylim(0,.5) +
+  xlab("Distance to Streambed (km)") +
+  ylab("Relative Selection Probability")
+```
+
+#### Elevation
+```{r, echo = F}
+elevation <- data.frame(elevation = seq(min(all_data$elevation, na.rm=T), max(all_data$elevation, na.rm=T), by = 0.1)) %>% 
+  mutate(east = 0,
+         north = 0,
+         water = 0,
+         rugged = 0,
+         slope = 0,
+         survveg.2 = 1,
+         veg = 1, 
+         elevation.unscaled = elevation * elevation_scalelist$scale + elevation_scalelist$center)
+
+elevation$veg <- as.factor(elevation$veg)
+elevation$survveg.2 <- as.factor(elevation$survveg.2)
+
+elevation$pre <- predict(best_model_pre, elevation, type = "response", re.form=~0, factors = c(veg.levels))
+elevation$post <- predict(best_model_post, elevation, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
+
+elevation_long <- pivot_longer(elevation, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
+
+ggplot(aes(x = elevation.unscaled, y = coefficient, col = model), data = elevation_long) + 
+  geom_line(size = 1.5) +
+  theme_classic() +
+  ylim(0,.5) +
+  xlab("Elevation (m)") +
+  ylab("Relative Selection Probability")
+```
+
+#### Aspect
+```{r, echo = F}
+east <- data.frame(east = seq(min(all_data$east, na.rm=T), max(all_data$east, na.rm=T), by = 0.1)) %>% 
+  mutate(elevation = 0,
+         north = 0,
+         water = 0,
+         rugged = 0,
+         slope = 0,
+         survveg.2 = 1,
+         veg = 1, 
+         east.unscaled = east * east_scalelist$scale + east_scalelist$center)
+
+east$veg <- as.factor(east$veg)
+east$survveg.2 <- as.factor(east$survveg.2)
+
+east$pre <- predict(best_model_pre, east, type = "response", re.form=~0, factors = c(veg.levels))
+east$post <- predict(best_model_post, east, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
+
+east_long <- pivot_longer(east, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
+
+ggplot(aes(x = east.unscaled, y = coefficient, col = model), data = east_long) + 
+  geom_line(size = 1.5) +
+  theme_classic() +
+  ylim(0,.5) +
+  xlab("east") +
+  ylab("Relative Selection Probability")
+```
+
+```{r, echo = F}
+north <- data.frame(north = seq(min(all_data$north, na.rm=T), max(all_data$north, na.rm=T), by = 0.1)) %>% 
+  mutate(elevation = 0,
+         east = 0,
+         water = 0,
+         rugged = 0,
+         slope = 0,
+         survveg.2 = 1,
+         veg = 1, 
+         north.unscaled = north * north_scalelist$scale + north_scalelist$center)
+
+north$veg <- as.factor(north$veg)
+north$survveg.2 <- as.factor(north$survveg.2)
+
+north$pre <- predict(best_model_pre, north, type = "response", re.form=~0, factors = c(veg.levels))
+north$post <- predict(best_model_post, north, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
+
+north_long <- pivot_longer(north, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
+
+ggplot(aes(x = north.unscaled, y = coefficient, col = model), data = north_long) + 
+  geom_line(size = 1.5) +
+  theme_classic() +
+  ylim(0,.5) +
+  xlab("north") +
+  ylab("Relative Selection Probability")
+```
+
+#### Slope
+```{r, echo = F}
+slope <- data.frame(slope = seq(min(all_data$slope, na.rm=T), max(all_data$slope, na.rm=T), by = 0.1)) %>% 
+  mutate(east = 0,
+         north = 0,
+         water = 0,
+         rugged = 0,
+         elevation = 0,
+         survveg.2 = 1,
+         veg = 1, 
+         slope.unscaled = slope * slope_scalelist$scale + slope_scalelist$center)
+
+slope$veg <- as.factor(slope$veg)
+slope$survveg.2 <- as.factor(slope$survveg.2)
+
+slope$pre <- predict(best_model_pre, slope, type = "response", re.form=~0, factors = c(veg.levels))
+slope$post <- predict(best_model_post, slope, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
+
+slope_long <- pivot_longer(slope, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
+
+ggplot(aes(x = slope.unscaled, y = coefficient, col = model), data = slope_long) + 
+  geom_line(size = 1.5) +
+  theme_classic() +
+  ylim(0,.5) +
+  xlab("Slope") +
+  ylab("Relative Selection Probability")
+```
+
+#### Ruggedness
+```{r, echo = F}
+rugged <- data.frame(rugged = seq(min(all_data$rugged, na.rm=T), max(all_data$rugged, na.rm=T), by = 0.1)) %>% 
+  mutate(east = 0,
+         north = 0,
+         water = 0,
+         slope = 0,
+         elevation = 0,
+         survveg.2 = 1,
+         veg = 1, 
+         rugged.unscaled = rugged * rugged_scalelist$scale + rugged_scalelist$center)
+
+rugged$veg <- as.factor(rugged$veg)
+rugged$survveg.2 <- as.factor(rugged$survveg.2)
+
+rugged$pre <- predict(best_model_pre, rugged, type = "response", re.form=~0, factors = c(veg.levels))
+rugged$post <- predict(best_model_post, rugged, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
+
+rugged_long <- pivot_longer(rugged, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
+
+ggplot(aes(x = rugged.unscaled, y = coefficient, col = model), data = rugged_long) + 
+  geom_line(size = 1.5) +
+  theme_classic() +
+  ylim(0,.5) +
+  xlab("Ruggedness") +
+  ylab("Relative Selection Probability")
+```
+
+
+### MODEL VALIDATION - individual level
+
+#### Pre-Fire
+
+```{r, echo = F}
+set.seed(15)
+
+simulations <- list()
+
+nsim <- 100
+
+for(j in 1:13) { # loop through the 13 individual deer
+
+  for (i in 1:nsim){ # repeat for nsim iterations
+    
+    traintest <- PreAll %>%
+      filter(AnimalID == names(individual_stacks[j])) %>% # filter for only that deer
+      dplyr::mutate(n = row_number()) %>% #create row number if you dont have one
+      dplyr::select(n, everything()) # put 'n' at the front of the dataset
+  
+    training <- traintest %>%
+      group_by(Case) %>% # any number of variables you wish to partition by proportionally
+      sample_frac(.8) # '.8' is the proportion of the original df you wish to sample
+  
+    testing <- anti_join(traintest, training) # creates test dataframe with those observations not in 'train.'
+    
+    test.model<- glm(Case ~ veg + elevation + slope + east + north + rugged + water, 
+                       family="binomial",
+                       data = training)
+  
+    testing$predict1 <- predict(test.model, testing, type="response")
+    
+    # needed to add line re.form = ~0 since there are no "random effects" when just predicting spatially
+    rastpredict <- predict(individual_stacks[[j]], test.model, 
+                           allow.new.levels=T, type="response", re.form=~0,
+                           factors = veg.levels) 
+    
+    testingsub <- subset(testing,Case==1)
+    
+    quantpredict <- data.frame(quantile(testingsub$predict1,probs=c(seq(0,1,by=0.1))))
+    
+    binbreaks<-c(quantpredict[,1])
+    binbreaks[1]<-0
+    binbreaks[11]<-1
+    
+    reclass_df <- t(matrix(c(binbreaks[1:10],binbreaks[2:11],seq(1:10)),ncol=10,byrow=T))
+    r1.class <- reclassify(rastpredict,reclass_df)
+    r1.area<-data.frame(freq(r1.class))
+    r1.area<-r1.area[-11,]
+    r1.areas<-r1.area$count/sum(r1.area$count)
+    
+    testingsub$predictbins<-.bincode(testingsub$predict1,breaks=binbreaks)
+    
+    # to prevent error message in case of bin issue
+    if(length((table(testingsub$predictbins)/sum(table(testingsub$predictbins)))) != length(r1.areas)) {
+      
+      simulations[[(nsim*(j-1) + i)]] <- NA
+      
+    } else {
+          
+        area.adjust<-data.frame(((table(testingsub$predictbins)/sum(table(testingsub$predictbins))))/r1.areas)
+        
+        area.adjust$AnimalID <- j
+        
+        simulations[[(nsim*(j-1) + i)]]<-area.adjust
+    
+    }
+
+  }
+}
+
+simulations.all<-do.call(rbind, simulations)
+
+simulations.all<-data.frame(simulations.all)
+
+library(plyr)
+kfold.ply<-ddply(simulations.all,.(Var1, AnimalID),summarize,mean=mean(Freq),sd=sd(Freq),count=length(Freq))
+
+kfold.ply$se<-kfold.ply$sd/sqrt(kfold.ply$count)
+
+kfold.ply$Var2<-as.numeric(kfold.ply$Var1)
+
+
+# run correlation tests for each individual animal
+cor.test.list <- list()
+for(i in 1:13) {
+  cor.test.list[[i]] <-
+  cor.test(~mean+Var2,
+         data = filter(kfold.ply, AnimalID == i),
+         method = "spearman")
+}
+
+cor.test.list
+
+#maxy<-max(kfold.ply$mean)+10*max(kfold.ply$se)
+
+ggplot(kfold.ply, aes(x=Var1, y=mean,group=1)) + 
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.1) +
+  theme_classic()+
+  xlab("Binned RSF Score")+ylab("Area Adjusted Frequency")+
+  ggtitle("Pre Fire") +
+  geom_line() +  geom_point(size=2.5)+ 
+ # ylim(0,maxy)+
+  geom_hline(yintercept=1, linetype="dashed",size=1.5) +
+  facet_wrap(~AnimalID, scales = "free")
+
+
+## for all individuals combined
+
+kfold.ply.all <- ddply(simulations.all,.(Var1),summarize,mean=mean(Freq),sd=sd(Freq),count=length(Freq))
+
+kfold.ply.all$se<-kfold.ply.all$sd/sqrt(kfold.ply.all$count)
+
+kfold.ply.all$Var2<-as.numeric(kfold.ply.all$Var1)
+
+# run for all individuals combined
+cor.test(~mean+Var2,
+       data = kfold.ply.all,
+       method = "spearman")
+
+ggplot(kfold.ply.all, aes(x=Var1, y=mean,group=1)) + 
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.1) +
+  theme_classic()+
+  xlab("Binned RSF Score")+ylab("Area Adjusted Frequency")+
+  ggtitle("Pre Fire") +
+  geom_line() +  geom_point(size=2.5)+ 
+ # ylim(0,maxy)+
+  geom_hline(yintercept=1, linetype="dashed",size=1.5)
+```
+
+INDIVIDUAL DEER: 
+
+[[1]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 80, p-value = 0.1328
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.5151515 
+
+
+[[2]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 2, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9878788 
+
+
+[[3]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 14, p-value = 0.0004667
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9151515 
+
+
+[[4]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 6, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9636364 
+
+
+[[5]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 32, p-value = 0.008236
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.8060606 
+
+
+[[6]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 48, p-value = 0.02751
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.7090909 
+
+
+[[7]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 2, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9878788 
+
+
+[[8]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 6, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9636364 
+
+
+[[9]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 6, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9636364 
+
+
+[[10]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 16, p-value = 0.0008802
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9030303 
+
+
+[[11]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 8, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9515152 
+
+
+[[12]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 4, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9757576 
+
+
+[[13]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 30, p-value = 0.006811
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.8181818 
+
+
+ALL COMBINED:
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 2, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9878788 
+
+#### Post-Fire
+
+```{r, echo = F}
+set.seed(5)
+
+simulations <- list()
+
+nsim <- 100
+
+for(j in 1:13) { # loop through the 13 individual deer
+
+  for (i in 1:nsim){ # repeat for nsim iterations
+    
+    traintest <- PostAll %>%
+      filter(AnimalID == names(individual_stacks[j])) %>% # filter for only that deer
+      dplyr::mutate(n = row_number()) %>% #create row number if you dont have one
+      dplyr::select(n, everything()) # put 'n' at the front of the dataset
+  
+    training <- traintest %>%
+      group_by(Case) %>% # any number of variables you wish to partition by proportionally
+      sample_frac(.8) # '.8' is the proportion of the original df you wish to sample
+  
+    testing <- anti_join(traintest, training) # creates test dataframe with those observations not in 'train.'
+    
+    test.model<- glm(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3, 
+                     family="binomial",
+                     data = training)
+  
+    testing$predict1 <- predict(test.model, testing, type="response")
+    
+    # needed to add line re.form = ~0 since there are no "random effects" when just predicting spatially
+    rastpredict <- predict(individual_stacks[[j]], test.model, 
+                           allow.new.levels=T, type="response", re.form=~0,
+                           factors = c(veg.levels, survveg.3.levels)) 
+    
+    testingsub <- subset(testing,Case==1)
+    
+    quantpredict <- data.frame(quantile(testingsub$predict1,probs=c(seq(0,1,by=0.1))))
+    
+    binbreaks<-c(quantpredict[,1])
+    binbreaks[1]<-0
+    binbreaks[11]<-1
+    
+    reclass_df <- t(matrix(c(binbreaks[1:10],binbreaks[2:11],seq(1:10)),ncol=10,byrow=T))
+    r1.class <- reclassify(rastpredict,reclass_df)
+    r1.area<-data.frame(freq(r1.class))
+    r1.area<-r1.area[-11,]
+    r1.areas<-r1.area$count/sum(r1.area$count)
+    
+    testingsub$predictbins<-.bincode(testingsub$predict1,breaks=binbreaks)
+    
+    # to prevent error message in case of bin issue
+    if(length((table(testingsub$predictbins)/sum(table(testingsub$predictbins)))) != length(r1.areas)) {
+      
+      simulations[[(nsim*(j-1) + i)]] <- NA
+      
+    } else {
+          
+        area.adjust<-data.frame(((table(testingsub$predictbins)/sum(table(testingsub$predictbins))))/r1.areas)
+        
+        area.adjust$AnimalID <- j
+        
+        simulations[[(nsim*(j-1) + i)]]<-area.adjust
+    
+    }
+  }
+}
+
+simulations.all<-do.call(rbind, simulations)
+
+simulations.all<-data.frame(simulations.all)
+
+library(plyr)
+kfold.ply<-ddply(simulations.all,.(Var1, AnimalID),summarize,mean=mean(Freq),sd=sd(Freq),count=length(Freq))
+
+kfold.ply$se<-kfold.ply$sd/sqrt(kfold.ply$count)
+
+kfold.ply$Var2<-as.numeric(kfold.ply$Var1)
+
+
+# run correlation tests for each individual animal
+cor.test.list <- list()
+for(i in 1:13) {
+  cor.test.list[[i]] <-
+  cor.test(~mean+Var2,
+         data = filter(kfold.ply, AnimalID == i),
+         method = "spearman")
+}
+
+cor.test.list
+
+#maxy<-max(kfold.ply$mean)+10*max(kfold.ply$se)
+
+ggplot(kfold.ply, aes(x=Var1, y=mean,group=1)) + 
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.1) +
+  theme_classic()+
+  xlab("Binned RSF Score")+ylab("Area Adjusted Frequency")+
+  ggtitle("Post Fire") +
+  geom_line() +  geom_point(size=2.5)+ 
+ # ylim(0,maxy)+
+  geom_hline(yintercept=1, linetype="dashed",size=1.5) +
+  facet_wrap(~AnimalID, scales = "free")
+
+
+## for all individuals combined
+
+kfold.ply.all <- ddply(simulations.all,.(Var1),summarize,mean=mean(Freq),sd=sd(Freq),count=length(Freq))
+
+kfold.ply.all$se<-kfold.ply.all$sd/sqrt(kfold.ply.all$count)
+
+kfold.ply.all$Var2<-as.numeric(kfold.ply.all$Var1)
+
+# run for all individuals combined
+cor.test(~mean+Var2,
+       data = kfold.ply.all,
+       method = "spearman")
+
+ggplot(kfold.ply.all, aes(x=Var1, y=mean,group=1)) + 
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.1) +
+  theme_classic()+
+  xlab("Binned RSF Score")+ylab("Area Adjusted Frequency")+
+  ggtitle("Post Fire") +
+  geom_line() +  geom_point(size=2.5)+ 
+ # ylim(0,maxy)+
+  geom_hline(yintercept=1, linetype="dashed",size=1.5)
+```
+
+[[1]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 32, p-value = 0.008236
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.8060606 
+
+
+[[2]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 62, p-value = 0.06025
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.6242424 
+
+
+[[3]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 10, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9393939 
+
+
+[[4]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 2, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9878788 
+
+
+[[5]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 2, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9878788 
+
+
+[[6]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 4, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9757576 
+
+
+[[7]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 18, p-value = 0.00138
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.8909091 
+
+
+[[8]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 14, p-value = 0.0004667
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9151515 
+
+
+[[9]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 8, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9515152 
+
+
+[[10]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 24, p-value = 0.003505
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.8545455 
+
+
+[[11]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 16, p-value = 0.0008802
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9030303 
+
+
+[[12]]
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 14, p-value = 0.0004667
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9151515 
+
+
+DEER 13 - Q5 - did not converge, not sure why
+
+
+ALL COMBINED:
+
+	Spearman's rank correlation rho
+
+data:  mean and Var2
+S = 2, p-value < 2.2e-16
+alternative hypothesis: true rho is not equal to 0
+sample estimates:
+      rho 
+0.9878788 
