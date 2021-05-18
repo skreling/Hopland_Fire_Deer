@@ -29,7 +29,8 @@ install_load(packages)
 ```
 
 # Establish functions for RT and T2R
-Functions for calculating Mean return time and mean time to return for gps collar data. This function calculates these two movement metrics for an indivdiual and will later be placed into a forloop to calculate the metrics for all individuals in a ltraj object.f
+
+Functions for calculating Mean return time and mean time to return for GPS collar data. This function calculates these two movement metrics for an indivdiual and will later be placed into a loop to calculate the metrics for all individuals in a ltraj object.
 
 Source functions can be found (here)[https://www.danaseidel.com/MovEco-R-Workshop/Materials/Day6/Syndromes/]. From site: 
 Residence time = the number of hours the animal spends inside a circle of a given radius centered on each location without leaving the radius for more than a specified cut-off time
@@ -63,11 +64,17 @@ RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
 ```
 
 
-# Pre-fire Doe
-```{r}
-collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefiredoe.csv')) #load in dataframe
-collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
+# Calculate metrics for does
 
+```{r}
+prefiredoe <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefiredoe.csv'))
+postfiredoe <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfiredoe.csv'))
+
+# repeat code below for both pre-fire doe and post-fire doe
+collars <- prefiredoe
+#collars <- postfiredoe
+
+collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
 ltraj <- as.ltraj(collars[, c("Easting", "Northing")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
@@ -132,77 +139,17 @@ meters.hour <- sumdist/tot.hour
 meters.day <- meters.hour*24
 ```
 
-# Post-fire Doe
+
+# Calculate metrics for bucks
+
 ```{r}
-collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfiredoe.csv')) #load in datafram
-collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
+prefirebuck <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefirebuck.csv'))
+postfirebuck <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfirebuck.csv'))
 
-## dt = number of minutes between successive steps (3600 seconds = 1 hour)
-ltraj <- as.ltraj(collars[, c("Easting", "Northing")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
-ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
-df <- ld(ltraj)
-plot(ltraj)
+# repeat code below for both pre-fire doe and post-fire doe
+collars <- prefirebuck
+#collars <- postfirebuck
 
-refda<- strptime("00:00", "%H:%M", tz="UTC") 
-refda
-ltraj3 <- setNA(ltraj, refda, 1, units = "hour")
-ltraj4<- sett0(ltraj3, refda, 1, units = "hour")
-is.regular(ltraj4) #check that they are all 1 hour apart
-
-
-
-##Turn Angle Correlation
-TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
-for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative")
-TAC[i,] <- 1/(SA[[1]][1,])}
-View(TAC)
-
-##RT & T2R
-lres <- list()
-for (j in 1:length(ltraj)){
-  res <- ltraj4[[j]][,c("x","y","date")]
-  meanDist<- mean(ltraj4[[j]][1:nrow(ltraj4[[j]])-1,"dist"], na.rm=T)
-  rads <- c(meanDist) 
-  maxts <- c(12) 
-  params <- expand.grid(rads=rads, maxts=maxts)
-  for (i in 1:nrow(params)){
-    nams <- names(res)
-    tmp <- RTandT2R(ltraj4[[j]], radius = params$rads[i], maxt=params$maxts[i], units="hour", addinfo = F)
-    res <- cbind(res, tmp)
-    names(res) <- c(nams, paste("RT", params$rads[i], params$maxts[i], sep="_"), paste("T2R", params$rads[i], params$maxts[i], sep="_"))
-  }
-  lres[[j]] <- res
-}
-
-meanRTs <- sapply(lapply(lres, "[[", 4), function(x) mean(x, na.rm=T))
-meanRTs
-
-meanT2Rs <- sapply(lapply(lres, "[[", 5), function(x) mean(x, na.rm=T))
-meanT2Rs
-
-
-##MNSD --> Must be calculated after R2N
-id <- levels(as.factor(df$id))
-MNSD <- matrix (ncol=1, nrow=length(id))
-for ( i in 1: length(id)){
-  NSD <- data.frame (MNSD = df$R2n[which(df$id==id[i])])
-  MNSD[i,] <- sapply(NSD, function(x) max(NSD$MNSD, na.rm=TRUE))
-}
-MNSD
-
-#Meters/Hour - Should just put in forloop but if not just change the first number in the bracket
-##to change the collar number - dist/dt
-sumdist <- sum(ltraj4[[16]][[6]], na.rm = TRUE)
-tot.hour <- nrow(ltraj4[[16]])
-sumdist/tot.hour
-
-#Meters/Day
-meters.day <- meters.hour*24
-```
-
-
-# Pre-fire Buck
-```{r}
 collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefirebuck.csv')) #load in datafram
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
@@ -269,70 +216,4 @@ meters.hour <- sumdist/tot.hour
 
 meters.day <- meters.hour*24
 
-```
-
-
-# Post-fire Buck
-```{r}
-collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfirebuck.csv')) #load in dataframe
-collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
-
-## dt = number of minutes between successive steps (3600 seconds = 1 hour)
-ltraj <- as.ltraj(collars[, c("Easting", "Northing")], date = as.POSIXct(collars$TimeStamp, format= "%Y-%m-%d %H:%M:%S", tz = "America/Los_Angeles"), id=collars$AnimalID) #create a ltraj object that allows us to more easily work with time series spatial data like GPS collar data
-ltraj2 <- cutltraj(ltraj, criterion = "dt > (3600*24)") #removing points that are not exactly 1 hour apart in each of the deers tracks
-df <- ld(ltraj)
-plot(ltraj)
-
-refda<- strptime("00:00", "%H:%M", tz="UTC") 
-refda
-ltraj3 <- setNA(ltraj, refda, 2, units = "hour")
-ltraj4<- sett0(ltraj3, refda, 2, units = "hour")
-is.regular(ltraj4) #check that they are all 1 hour apart
-
-##Turn Angle Correlation
-TAC <- matrix(ncol=1, nrow=length(ltraj4)) # create empty data frame to populate with for-loop
-for(i in 1:length(ltraj4)){SA <- adehabitatLT::acfang.ltraj(ltraj4[i], which = "relative")
-TAC[i,] <- 1/(SA[[1]][1,])}
-View(TAC)
-
-##RT & T2R
-lres <- list()
-for (j in 1:length(ltraj)){
-  res <- ltraj4[[j]][,c("x","y","date")]
-  meanDist<- mean(ltraj4[[j]][1:nrow(ltraj4[[j]])-1,"dist"], na.rm=T)
-  rads <- c(meanDist) 
-  maxts <- c(12) 
-  params <- expand.grid(rads=rads, maxts=maxts)
-  for (i in 1:nrow(params)){
-    nams <- names(res)
-    tmp <- RTandT2R(ltraj4[[j]], radius = params$rads[i], maxt=params$maxts[i], units="hour", addinfo = F)
-    res <- cbind(res, tmp)
-    names(res) <- c(nams, paste("RT", params$rads[i], params$maxts[i], sep="_"), paste("T2R", params$rads[i], params$maxts[i], sep="_"))
-  }
-  lres[[j]] <- res
-}
-
-meanRTs <- sapply(lapply(lres, "[[", 4), function(x) mean(x, na.rm=T))
-meanRTs
-
-meanT2Rs <- sapply(lapply(lres, "[[", 5), function(x) mean(x, na.rm=T))
-meanT2Rs
-
-
-##MNSD --> Must be calculated after R2N
-id <- levels(as.factor(df$id))
-MNSD <- matrix (ncol=1, nrow=length(id))
-for ( i in 1: length(id)){
-  NSD <- data.frame (MNSD = df$R2n[which(df$id==id[i])])
-  MNSD[i,] <- sapply(NSD, function(x) max(NSD$MNSD, na.rm=TRUE))
-}
-MNSD
-
-#Meters/Hour -  change the first number in the bracket
-##to change the collar number - dist/dt
-sumdist <- sum(ltraj4[[1]][[6]], na.rm = TRUE)
-tot.hour <- nrow(ltraj4[[1]])*2 # x2 for bucks because fix rate is every 2 hours
-meters.hour <- sumdist/tot.hour
-
-meters.day <- meters.hour*24
 ```
