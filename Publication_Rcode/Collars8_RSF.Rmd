@@ -27,44 +27,14 @@ library(car)
 ```
 
 
-Read in dataframe and filter by time period
+Read in dataframe and filter by time period.
+
+This dataframe includes rows for used points and randomly-generated points, and associated values of landscape covariates as extracted from underlying raster layers.
 ```{r}
 all_data <- read.csv("Publication_Data/Collars/RSF_input.csv") 
 
 PreAll <- filter(all_data, Period == "Pre") 
 PostAll <- filter(all_data, Period == "Post") 
-```
-
-Read in raster stacks, masked to study areas, for later validation.
-```{r}
-# bring in raw file for names (didn't export for some reason)
-prestack_doe <- stack("data/RSF_NEW_12.2020/Area_Rasters/PreDoeStack2.grd")
-
-# bring in the 13 individual stacks cropped to each deer's home range
-individual_stacks <- list()
-for (i in 1:13) {
-  
-  file_name <- paste("data/RSF_NEW_12.2020/Area_Rasters/individual_rasters/Stack_",
-                     levels(all_data$AnimalID)[i], ".grd", sep = "")
-  
-  individual_stacks[[i]] <- stack(file_name)
-  
-  names(individual_stacks[[i]]) <- names(prestack_doe)
-}
-
-names(individual_stacks) <- levels(all_data$AnimalID)
-```
-
-Store factor levels in list (needed for predicting the model with the raster stack in validation and covariate plots)
-```{r}
-veg.levels <- list(levels(all_data$veg))
-names(veg.levels) <- "veg"
-
-survveg.1.levels <- list(levels(all_data$survveg.1))
-names(survveg.1.levels) <- "survveg.1"
-
-survveg.3.levels <- list(levels(all_data$survveg.3))
-names(survveg.3.levels) <- "survveg.3"
 ```
 
 
@@ -201,278 +171,34 @@ Notably, habitat selection patterns changed after the fire. The deer selected fo
 Surviving vegetation is the strongest predictor in the post-fire models. This, I think, is the main take-away.
 
 
-### Covariate plots - HAVE NOT REVISITED
-
-#### Generate scaling parameters 
-
-So plot axes can be un-standardized. There has to be a better way to do this..... code hidden for markdown doc.
-
-```{r, echo = F}
-# bring in un-transformed metadata
-data_all_rasters <- read.csv("data/all_locations_with_untransformed_metadata.csv")
-
-# scale parameters from models
-all_data_norm <- data_all_rasters %>% 
-  mutate(elevation = base::scale(elevation, center = TRUE, scale = TRUE),
-         slope = base::scale(slope, center = TRUE, scale = TRUE),
-         water = base::scale(water, center = TRUE, scale = TRUE),
-         rugged = base::scale(rugged, center = TRUE, scale = TRUE),
-         east = base::scale(east, center=T, scale=T),
-         north = base::scale(north, center=T, scale=T)
-         )
-
-# Save your scale parameters for plotting
-elevation_scalelist <- list(scale = attr(all_data_norm$elevation, "scaled:scale"),
-                      center = attr(all_data_norm$elevation, "scaled:center"))
-slope_scalelist <- list(scale = attr(all_data_norm$slope, "scaled:scale"),
-                      center = attr(all_data_norm$slope, "scaled:center"))
-water_scalelist <- list(scale = attr(all_data_norm$water, "scaled:scale"),
-                      center = attr(all_data_norm$water, "scaled:center"))
-rugged_scalelist <- list(scale = attr(all_data_norm$rugged, "scaled:scale"),
-                      center = attr(all_data_norm$rugged, "scaled:center"))
-east_scalelist <- list(scale = attr(all_data_norm$east, "scaled:scale"),
-                      center = attr(all_data_norm$east, "scaled:center"))
-north_scalelist <- list(scale = attr(all_data_norm$north, "scaled:scale"),
-                      center = attr(all_data_norm$north, "scaled:center"))
-```
-
-
-#### Vegetation
-```{r, echo = F}
-veg <- data.frame(veg = c(1,2,3)) %>% 
-  mutate(east = 0,
-         north = 0,
-         rugged = 0,
-         elevation = 0,
-         slope = 0,
-         water = 0,
-         survveg.3 = 1)
-
-veg$veg <- as.factor(veg$veg)
-veg$survveg.3 <- as.factor(veg$survveg.3)
-
-veg$pre <- predict(best_model_pre, veg, type = "response", re.form=~0, factors = c(veg.levels))
-veg$post <- predict(best_model_post, veg, type = "response", re.form=~0, factors = c(veg.levels, survveg.3.levels))
-
-veg_long <- pivot_longer(veg, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
-
-ggplot(aes(x = model, y = coefficient, col = veg), data = veg_long) + 
-  geom_point(size = 3) +
-  theme_classic() +
-  ylim(0,.5) +
-  xlab("") +
-  ylab("Relative Selection Probability")
-
-veg_long
-
-```
-
-Post-fire
-0.343/0.147 # Deer 2.33 times more likely to be in woodland than chaparral
-
-Pre-fire
-0.200/0.181 # Deer 1.11 times more likely to be in chaparral than grassland
-
-#### Surviving Vegetation
-```{r, echo = F}
-survveg <- data.frame(survveg.2 = c(0,1)) %>% 
-  mutate(east = 0,
-         north = 0,
-         rugged = 0,
-         elevation = 0,
-         slope = 0,
-         water = 0,
-         veg = 1)
-
-survveg$veg <- as.factor(survveg$veg)
-survveg$survveg.2 <- as.factor(survveg$survveg.2)
-
-survveg$pre <- predict(best_model_pre, survveg, type = "response", re.form=~0, factors = c(veg.levels))
-survveg$post <- predict(best_model_post, survveg, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
-
-survveg_long <- pivot_longer(survveg, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
-
-ggplot(aes(x = model, y = coefficient, col = survveg.2), data = survveg_long) + 
-  geom_point(size = 3) +
-  theme_classic() +
-  ylim(0,.5) +
-  xlab("") +
-  ylab("Relative Selection Probability")
-
-survveg_long
-```
-
-.141/.0745 = 1.89 times more likely to be found in area of surviving vegetation
-
-#### Distance to streambed
-```{r, echo = F}
-water <- data.frame(water = seq(min(all_data$water, na.rm=T), max(all_data$water, na.rm=T), by = 0.1)) %>% 
-  mutate(east = 0,
-         north = 0,
-         elevation = 0,
-         rugged = 0,
-         slope = 0,
-         survveg.2 = 1,
-         veg = 1, 
-         water.unscaled = water * water_scalelist$scale + water_scalelist$center)
-
-water$veg <- as.factor(water$veg)
-water$survveg.2 <- as.factor(water$survveg.2)
-
-water$pre <- predict(best_model_pre, water, type = "response", re.form=~0, factors = c(veg.levels))
-water$post <- predict(best_model_post, water, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
-
-water_long <- pivot_longer(water, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
-
-ggplot(aes(x = water.unscaled, y = coefficient, col = model), data = water_long) + 
-  geom_line(size = 1.5) +
-  theme_classic() +
-  ylim(0,.5) +
-  xlab("Distance to Streambed (km)") +
-  ylab("Relative Selection Probability")
-```
-
-#### Elevation
-```{r, echo = F}
-elevation <- data.frame(elevation = seq(min(all_data$elevation, na.rm=T), max(all_data$elevation, na.rm=T), by = 0.1)) %>% 
-  mutate(east = 0,
-         north = 0,
-         water = 0,
-         rugged = 0,
-         slope = 0,
-         survveg.2 = 1,
-         veg = 1, 
-         elevation.unscaled = elevation * elevation_scalelist$scale + elevation_scalelist$center)
-
-elevation$veg <- as.factor(elevation$veg)
-elevation$survveg.2 <- as.factor(elevation$survveg.2)
-
-elevation$pre <- predict(best_model_pre, elevation, type = "response", re.form=~0, factors = c(veg.levels))
-elevation$post <- predict(best_model_post, elevation, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
-
-elevation_long <- pivot_longer(elevation, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
-
-ggplot(aes(x = elevation.unscaled, y = coefficient, col = model), data = elevation_long) + 
-  geom_line(size = 1.5) +
-  theme_classic() +
-  ylim(0,.5) +
-  xlab("Elevation (m)") +
-  ylab("Relative Selection Probability")
-```
-
-#### Aspect
-```{r, echo = F}
-east <- data.frame(east = seq(min(all_data$east, na.rm=T), max(all_data$east, na.rm=T), by = 0.1)) %>% 
-  mutate(elevation = 0,
-         north = 0,
-         water = 0,
-         rugged = 0,
-         slope = 0,
-         survveg.2 = 1,
-         veg = 1, 
-         east.unscaled = east * east_scalelist$scale + east_scalelist$center)
-
-east$veg <- as.factor(east$veg)
-east$survveg.2 <- as.factor(east$survveg.2)
-
-east$pre <- predict(best_model_pre, east, type = "response", re.form=~0, factors = c(veg.levels))
-east$post <- predict(best_model_post, east, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
-
-east_long <- pivot_longer(east, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
-
-ggplot(aes(x = east.unscaled, y = coefficient, col = model), data = east_long) + 
-  geom_line(size = 1.5) +
-  theme_classic() +
-  ylim(0,.5) +
-  xlab("east") +
-  ylab("Relative Selection Probability")
-```
-
-```{r, echo = F}
-north <- data.frame(north = seq(min(all_data$north, na.rm=T), max(all_data$north, na.rm=T), by = 0.1)) %>% 
-  mutate(elevation = 0,
-         east = 0,
-         water = 0,
-         rugged = 0,
-         slope = 0,
-         survveg.2 = 1,
-         veg = 1, 
-         north.unscaled = north * north_scalelist$scale + north_scalelist$center)
-
-north$veg <- as.factor(north$veg)
-north$survveg.2 <- as.factor(north$survveg.2)
-
-north$pre <- predict(best_model_pre, north, type = "response", re.form=~0, factors = c(veg.levels))
-north$post <- predict(best_model_post, north, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
-
-north_long <- pivot_longer(north, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
-
-ggplot(aes(x = north.unscaled, y = coefficient, col = model), data = north_long) + 
-  geom_line(size = 1.5) +
-  theme_classic() +
-  ylim(0,.5) +
-  xlab("north") +
-  ylab("Relative Selection Probability")
-```
-
-#### Slope
-```{r, echo = F}
-slope <- data.frame(slope = seq(min(all_data$slope, na.rm=T), max(all_data$slope, na.rm=T), by = 0.1)) %>% 
-  mutate(east = 0,
-         north = 0,
-         water = 0,
-         rugged = 0,
-         elevation = 0,
-         survveg.2 = 1,
-         veg = 1, 
-         slope.unscaled = slope * slope_scalelist$scale + slope_scalelist$center)
-
-slope$veg <- as.factor(slope$veg)
-slope$survveg.2 <- as.factor(slope$survveg.2)
-
-slope$pre <- predict(best_model_pre, slope, type = "response", re.form=~0, factors = c(veg.levels))
-slope$post <- predict(best_model_post, slope, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
-
-slope_long <- pivot_longer(slope, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
-
-ggplot(aes(x = slope.unscaled, y = coefficient, col = model), data = slope_long) + 
-  geom_line(size = 1.5) +
-  theme_classic() +
-  ylim(0,.5) +
-  xlab("Slope") +
-  ylab("Relative Selection Probability")
-```
-
-#### Ruggedness
-```{r, echo = F}
-rugged <- data.frame(rugged = seq(min(all_data$rugged, na.rm=T), max(all_data$rugged, na.rm=T), by = 0.1)) %>% 
-  mutate(east = 0,
-         north = 0,
-         water = 0,
-         slope = 0,
-         elevation = 0,
-         survveg.2 = 1,
-         veg = 1, 
-         rugged.unscaled = rugged * rugged_scalelist$scale + rugged_scalelist$center)
-
-rugged$veg <- as.factor(rugged$veg)
-rugged$survveg.2 <- as.factor(rugged$survveg.2)
-
-rugged$pre <- predict(best_model_pre, rugged, type = "response", re.form=~0, factors = c(veg.levels))
-rugged$post <- predict(best_model_post, rugged, type = "response", re.form=~0, factors = c(veg.levels, survveg.2.levels))
-
-rugged_long <- pivot_longer(rugged, cols = c(pre, post), names_to = "model", values_to = "coefficient") 
-
-ggplot(aes(x = rugged.unscaled, y = coefficient, col = model), data = rugged_long) + 
-  geom_line(size = 1.5) +
-  theme_classic() +
-  ylim(0,.5) +
-  xlab("Ruggedness") +
-  ylab("Relative Selection Probability")
-```
-
-
 ### MODEL VALIDATION - individual level
+
+Read in raster stacks, masked to study areas, for later validation.
+```{r}
+# bring in raw file for names (didn't export for some reason)
+prestack_doe <- stack("data/RSF_NEW_12.2020/Area_Rasters/PreDoeStack2.grd")
+
+# bring in the 13 individual stacks cropped to each deer's home range
+individual_stacks <- list()
+for (i in 1:13) {
+  
+  file_name <- paste("data/RSF_NEW_12.2020/Area_Rasters/individual_rasters/Stack_",
+                     levels(all_data$AnimalID)[i], ".grd", sep = "")
+  
+  individual_stacks[[i]] <- stack(file_name)
+  
+  names(individual_stacks[[i]]) <- names(prestack_doe)
+}
+
+names(individual_stacks) <- levels(all_data$AnimalID)
+```
+
+Store factor levels in list (needed for predicting the model with the raster stack in validation and covariate plots)
+```{r}
+survveg.3.levels <- list(levels(all_data$survveg.3))
+names(survveg.3.levels) <- "survveg.3"
+```
+
 
 #### Pre-Fire
 
