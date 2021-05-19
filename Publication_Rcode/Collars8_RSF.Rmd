@@ -27,30 +27,10 @@ library(car)
 ```
 
 
-Read in dataframe and fix issues. (Don't rename columns, so they match raster stack.)
+Read in dataframe and filter by time period
 ```{r}
-all_data <- read.csv("data/RSF_NEW_12.2020/all.steps.extracted.normalized.multisurvveg.csv") %>% 
-  drop_na() %>% # drop points where J3 was pushed over the hill; lso drop 2 points for J1, 4 for P4, and 5 for Q5
-  mutate(veg = as.factor(veg), # specify factors
-         survveg.1 = as.factor(survveg.1),
-         survveg.3 = as.factor(survveg.3)) %>% 
-  mutate(veg = fct_recode(veg, `2` = "0")) %>% # address the 11 points at the edge that were coded as 0 but are actually in chaparral (level = 2)
-  mutate(veg = fct_relevel(veg, "1", "2", "3")) 
+all_data <- read.csv("Publication_Data/Collars/RSF_input.csv") 
 
-# woodland (1), chaparral (2), grassland (3) 
-```
-
-Sex is missing, so let's strip it from the OLD version of the data and merge it in
-```{r}
-sex_key <- read.csv("data/all_locations_with_norm_metadata.csv") %>% 
-  dplyr::select(AnimalID, Sex) %>% 
-  unique()
-
-all_data <- left_join(all_data, sex_key, by = "AnimalID")
-```
-
-Filter dataframes by time period
-```{r}
 PreAll <- filter(all_data, Period == "Pre") 
 PostAll <- filter(all_data, Period == "Post") 
 ```
