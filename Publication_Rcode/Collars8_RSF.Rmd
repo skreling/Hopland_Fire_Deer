@@ -41,24 +41,6 @@ PostAll <- filter(all_data, Period == "Post")
 
 ### Model Selection
 
-#### Narrowing in on covariates
-
-Let's see what surviving vegetation layer is best.
-survveg.1 is the rounding at 0.5
-survveg.2 is the continuous
-survveg.3 is the rounding > 0
-```{r, eval = F}
-# conservative binary factor
-glmer(Case ~ survveg.1 + (1|AnimalID), family = "binomial", data = PostAll)      # 27371.31
-
-# continuous
-glmer(Case ~ survveg.2 + (1|AnimalID), family = "binomial", data = PostAll)      # 27246.44
-
-# liberal binary factor - BEST ONE.
-glmer(Case ~ survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)      # 27010.85 
-```
-
-
 #### Pre-Fire Models
 
 Let's try backwards selection again.
@@ -171,29 +153,24 @@ Notably, habitat selection patterns changed after the fire. The deer selected fo
 Surviving vegetation is the strongest predictor in the post-fire models. This, I think, is the main take-away.
 
 
-### MODEL VALIDATION - individual level
+### Model validation
 
-Read in raster stacks, masked to study areas, for later validation.
+Read in raster stacks, masked to study areas, for validation. (NOTE: We did not include these raster layers here, but if you are interested in the data or in how we ran this validation, please get in touch.)
 ```{r}
-# bring in raw file for names (didn't export for some reason)
-prestack_doe <- stack("data/RSF_NEW_12.2020/Area_Rasters/PreDoeStack2.grd")
-
-# bring in the 13 individual stacks cropped to each deer's home range
+# bring in the individual raster stacks cropped to each deer's home range
 individual_stacks <- list()
 for (i in 1:13) {
   
-  file_name <- paste("data/RSF_NEW_12.2020/Area_Rasters/individual_rasters/Stack_",
+  file_name <- paste("individual_rasters/Stack_",
                      levels(all_data$AnimalID)[i], ".grd", sep = "")
   
   individual_stacks[[i]] <- stack(file_name)
-  
-  names(individual_stacks[[i]]) <- names(prestack_doe)
 }
 
 names(individual_stacks) <- levels(all_data$AnimalID)
 ```
 
-Store factor levels in list (needed for predicting the model with the raster stack in validation and covariate plots)
+Store factor levels in list (needed for predicting the model with the raster stack in validation)
 ```{r}
 survveg.3.levels <- list(levels(all_data$survveg.3))
 names(survveg.3.levels) <- "survveg.3"
@@ -328,174 +305,6 @@ ggplot(kfold.ply.all, aes(x=Var1, y=mean,group=1)) +
   geom_hline(yintercept=1, linetype="dashed",size=1.5)
 ```
 
-INDIVIDUAL DEER: 
-
-[[1]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 80, p-value = 0.1328
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.5151515 
-
-
-[[2]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 2, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9878788 
-
-
-[[3]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 14, p-value = 0.0004667
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9151515 
-
-
-[[4]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 6, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9636364 
-
-
-[[5]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 32, p-value = 0.008236
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.8060606 
-
-
-[[6]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 48, p-value = 0.02751
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.7090909 
-
-
-[[7]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 2, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9878788 
-
-
-[[8]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 6, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9636364 
-
-
-[[9]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 6, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9636364 
-
-
-[[10]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 16, p-value = 0.0008802
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9030303 
-
-
-[[11]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 8, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9515152 
-
-
-[[12]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 4, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9757576 
-
-
-[[13]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 30, p-value = 0.006811
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.8181818 
-
-
-ALL COMBINED:
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 2, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9878788 
 
 #### Post-Fire
 
@@ -623,161 +432,3 @@ ggplot(kfold.ply.all, aes(x=Var1, y=mean,group=1)) +
  # ylim(0,maxy)+
   geom_hline(yintercept=1, linetype="dashed",size=1.5)
 ```
-
-[[1]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 32, p-value = 0.008236
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.8060606 
-
-
-[[2]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 62, p-value = 0.06025
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.6242424 
-
-
-[[3]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 10, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9393939 
-
-
-[[4]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 2, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9878788 
-
-
-[[5]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 2, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9878788 
-
-
-[[6]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 4, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9757576 
-
-
-[[7]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 18, p-value = 0.00138
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.8909091 
-
-
-[[8]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 14, p-value = 0.0004667
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9151515 
-
-
-[[9]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 8, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9515152 
-
-
-[[10]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 24, p-value = 0.003505
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.8545455 
-
-
-[[11]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 16, p-value = 0.0008802
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9030303 
-
-
-[[12]]
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 14, p-value = 0.0004667
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9151515 
-
-
-DEER 13 - Q5 - did not converge, not sure why
-
-
-ALL COMBINED:
-
-	Spearman's rank correlation rho
-
-data:  mean and Var2
-S = 2, p-value < 2.2e-16
-alternative hypothesis: true rho is not equal to 0
-sample estimates:
-      rho 
-0.9878788 
