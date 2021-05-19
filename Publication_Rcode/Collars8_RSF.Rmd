@@ -43,8 +43,6 @@ PostAll <- filter(all_data, Period == "Post")
 
 #### Pre-Fire Models
 
-Let's try backwards selection again.
-
 ```{r, eval = F}
 (PreNull <- glmer(Case ~ (1|AnimalID), family = "binomial", data = PreAll))                                                                                     # 30303.20
 
@@ -66,6 +64,9 @@ Let's try backwards selection again.
 (PreModel2.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30162.46 *
 (PreModel2.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30109.23 *
 (PreModel2.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + (1|AnimalID), family = "binomial", data = PreAll)) # 30116.76 *
+
+vif(PreModel1.7) # check VIF
+summary(PreModel1.7)
 ```
 
 
@@ -86,7 +87,7 @@ vif(PostFull)
 (PostModel1.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26262.57 *
 (PostModel1.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26163.90 *
 (PostModel1.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26568.19 *
-(PostModel1.8 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26150.56 # the best of the bunch
+(PostModel1.8 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26150.56 # the best of the bunch, with all variables except Sex
 
 # stepping backwards from PostModel1.8 - none improve on 1.8, still the best
 (PostFull2.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26759.72 *
@@ -97,60 +98,9 @@ vif(PostFull)
 (PostFull2.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26162.02 *
 (PostFull2.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PostAll)) # 26566.35 *
 
+vif(PostModel1.8) # check VIF
+summary(PostModel1.8)
 ```
-
-
-
-### Interpretation of results
-
-```{r}
-best_model_pre <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)
-
-vif(best_model_pre) # check VIF
-summary(best_model_pre)
-```
-
-
-The best pre-fire model includes the following covariates:
-
-woodland = 1, chaparral = 2, grassland = 3
-
-* vegetation/habitat: greatest selection for chaparral (2), then woodland (1), then grassland (3)
-* elevation (+)
-* slope (-)
-* east (+)
-* north (+)
-* ruggedness (+)
-* distance to streambed/water (+)
-
-
-```{r}
-best_model_post <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)
-
-vif(best_model_post)
-summary(best_model_post)
-```
-
-
-The best post-fire model includes the following covariates:
-
-woodland = 1, chaparral = 2, grassland = 3
-
-* vegetation/habitat: greatest selection for woodland (1), then grassland (3), then chaparral (2)
-* elevation (+)
-* slope (-)
-* east (+)
-* north (+)
-* ruggedness (+)
-* distance to streambed/water (+)
-* surviving vegetation (+)
-
-
-Both pre and post fire, deer showed similar patterns of selection for elevation, slope, aspect, ruggedness, and distance to streambed.
-
-Notably, habitat selection patterns changed after the fire. The deer selected for woodland, then grassland, then chaparral. This makes sense, given that the woodland was the area with tree cover, and the other areas were burned to a crisp. Trees likely provided shade and shelter.
-
-Surviving vegetation is the strongest predictor in the post-fire models. This, I think, is the main take-away.
 
 
 ### Model validation
