@@ -1,16 +1,19 @@
 ---
 title: "Straightness_Index"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 This script calcualtes straightness indices for deer movement
 
 # Load Libraries
 ```{r}
-packages <- c('trajr','sp','lubridate')
+packages <- c('trajr','sp','lubridate','tidyverse')
 
 install_load <- function(packages){
      for (p in packages) {
@@ -29,24 +32,21 @@ install_load(packages)
 
 # Pre Fire
 ```{r}
-deer <- read.csv(here::here("Publication_Data","Collars","deer-gps-prefire.csv"))
-deer <- deer[c(complete.cases(deer)),]
-xy <- deer[,c("Longitude","Latitude")]  ## get lat/long from data frame
-coordinates(xy) <- c("Longitude", "Latitude")
-proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
-res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
-res2 <- as.data.frame(res) #convert to dataframe
+prefire <- read.csv(here::here("Publication_Data","Collars","deer-gps-prefire.csv"))
 
+prefire_straightness <- list()
+for(i in unique(deer$AnimalID)) {
+  deer_subset <- prefire %>% 
+    filter(AnimalID == i)
+  
+  trj <- TrajFromCoords(data.frame(x = deer_subset$Easting,
+                                   y = deer_subset$Northing,
+                                   times = deer_subset$Time))
+  
+  prefire_straightness[[i]] <- TrajStraightness(trj)
+}
 
-
-# Animal IDs include: A5, A5b, D3b, F2, H2, H3, H4, H5, I5, J1, J2, J3, J5, K1, K2, K4, P4, Q5
-coords <- data.frame(x=deer[deer$AnimalID=="K2",]$Easting, y = deer[deer$AnimalID=="K2",]$Northing, times=deer[deer$AnimalID=="K2",]$Time, id=deer[deer$AnimalID=="K2",]$AnimalID)
-trj <- TrajFromCoords(coords) # create a trajectory object
-
-
-TrajStraightness(trj) #calculates straightness index of a trajectory
-
-
+prefire_straightness
 
 ```
 
@@ -54,21 +54,20 @@ TrajStraightness(trj) #calculates straightness index of a trajectory
 
 # Post Fire
 ```{r}
-deer <- read.csv(here::here("Publication_Data","Collars","deer-gps-postfire.csv"))
-deer <- deer[c(complete.cases(deer)),]
-xy <- deer[,c("Longitude","Latitude")]  ## get lat/long from data frame
-coordinates(xy) <- c("Longitude", "Latitude")
-proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")
-res <- spTransform(xy, CRS("+proj=utm +zone=10 ellps=WGS84"))
-res2 <- as.data.frame(res)
+postfire <- read.csv(here::here("Publication_Data","Collars","deer-gps-postfire.csv"))
 
+postfire_straightness <- list()
+for(i in unique(deer$AnimalID)) {
+  deer_subset <- postfire %>% 
+    filter(AnimalID == i)
+  
+  trj <- TrajFromCoords(data.frame(x = deer_subset$Easting,
+                                   y = deer_subset$Northing,
+                                   times = deer_subset$Time))
+  
+  postfire_straightness[[i]] <- TrajStraightness(trj)
+}
 
-
-# Animal IDs include: A5, A5b, D3b, F2, H2, H3, H4, H5, I5, J1, J2, J3, J5, K1, K2, K4, P4, Q5
-coords <- data.frame(x=deer[deer$AnimalID=="K2",]$Easting, y = deer[deer$AnimalID=="K2",]$Northing, times=deer[deer$AnimalID=="K2",]$Time, id=deer[deer$AnimalID=="K2",]$AnimalID)
-trj <- TrajFromCoords(coords)
-
-
-TrajStraightness(trj)
+postfire_straightness
 ```
 
