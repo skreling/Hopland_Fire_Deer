@@ -142,13 +142,19 @@ sd(doe_out$Mean_Dist_Day_Paired_Post)
 ## Straightness
 
 ```{r}
+#t = -2.0564, df = 10, p-value = 0.06679
+t.test(doe_in$Straightness_Paired_Pre, doe_in$Straightness_Paired_Post, paired=T)
 
-straightness <- read.xlsx(here::here("Publication_Data","Collars","straightness_index.xlsx"))
+mean(doe_in$Straightness_Paired_Pre)
+sd(doe_in$Straightness_Paired_Pre)
+mean(doe_in$Straightness_Paired_Post)
+sd(doe_in$Straightness_Paired_Post)
 
-straightness_buck <- filter(straightness, AnimalID %in% c("H3", "P4"))
-straightness_doe <- filter(straightness, AnimalID %notin% c("H3", "P4"))
+#t=0.19225, df=4, p=0.8569
+t.test(doe_out$Straightness_Paired_Pre, doe_out$Straightness_Paired_Post, paired=T)
 
-# All does
-t.test(straightness_doe$Pre, straightness_doe$Post, paired=T)
-t.test(straightness_buck$Pre, straightness_buck$Post, paired=T)
+mean(doe_out$Straightness_Paired_Pre)
+sd(doe_out$Straightness_Paired_Pre)
+mean(doe_out$Straightness_Paired_Post)
+sd(doe_out$Straightness_Paired_Post)
 ```
