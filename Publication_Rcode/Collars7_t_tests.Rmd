@@ -16,7 +16,11 @@ library(tidyverse)
 `%notin%` <- negate(`%in%`)
 ```
 
+In this script, we run statistical tests to compare differences in movement metrics among deer in and outside of the fire perimeter, and for deer before vs. after the fire.
+
 # Displacement During Fire
+
+Displacement distances were calculated in QGIS, based on MCP centroids as calculated in other scripts.
 ```{r}
 # mean displacement during fire
 table <- read.csv(here::here("Publication_Data","Collars","Distances_During_Fire_QGIS.csv"))
@@ -43,6 +47,8 @@ t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE) #t = 2.9707, df =
 ```
 
 # Movement Metrics
+
+The movement metric summary spreadsheet was created manually based on teh results from the Collars1_Movement_Metrics.Rmd script.
 ```{r}
 #Movement metrics
 table <- read.xlsx(here::here("Publication_Data","Collars","summary_move_collars.xlsx"))
@@ -106,13 +112,8 @@ mean(doeOut$Mean_Dist_Day_Paired_Pre)
 sd(doeOut$Mean_Dist_Day_Paired_Pre)
 mean(doeOut$Mean_Dist_Day_Paired_Post)
 sd(doeOut$Mean_Dist_Day_Paired_Post)
-```
 
-# Straightness Index
-```{r}
-
-############################################################
-#Straightness Index
+# straightness
 table <- read.xlsx(here::here("Publication_Data","Collars","straightness_index.xlsx"))
 buck <- table[c(17:18),]
 doe <- table[-c(17:18),]
