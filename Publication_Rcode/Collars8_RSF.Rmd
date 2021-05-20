@@ -22,14 +22,13 @@ library(tidyverse)
 library(raster)
 library(rgdal)
 library(car)
-
-`%notin%` <- Negate(`%in%`)
 ```
 
 
 Read in dataframe and filter by time period.
 
-This dataframe includes rows for used points and randomly-generated points, and associated values of landscape covariates as extracted from underlying raster layers.
+This dataframe includes rows for used points and randomly-generated points, and associated values of landscape covariates as extracted from underlying raster layers. All data have already been centered and scaled for modeling.
+
 ```{r}
 all_data <- read.csv("Publication_Data/Collars/RSF_input.csv") 
 
@@ -42,6 +41,8 @@ PostAll <- filter(all_data, Period == "Post")
 ### Model Selection
 
 #### Pre-Fire Models
+
+Backwards step-wise model selection based on AIC.
 
 ```{r, eval = F}
 (PreNull <- glmer(Case ~ (1|AnimalID), family = "binomial", data = PreAll))                                                                                     # 30303.20
@@ -58,12 +59,12 @@ PostAll <- filter(all_data, Period == "Post")
 (PreModel1.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll))      # 30105.61 - best of this batch (no Sex)
 
 # stepping backwards from PreModel1.7 - none improve on 1.7, still the best
-(PreModel2.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30121.54 *
+(PreModel2.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30121.54
 (PreModel2.2 <- glmer(Case ~ veg + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30138.98 *
-(PreModel2.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30165.17  *
-(PreModel2.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30162.46 *
-(PreModel2.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30109.23 *
-(PreModel2.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + (1|AnimalID), family = "binomial", data = PreAll)) # 30116.76 *
+(PreModel2.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30165.17
+(PreModel2.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30162.46
+(PreModel2.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + (1|AnimalID), family = "binomial", data = PreAll)) # 30109.23
+(PreModel2.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + (1|AnimalID), family = "binomial", data = PreAll)) # 30116.76
 
 vif(PreModel1.7) # check VIF
 summary(PreModel1.7)
@@ -72,31 +73,32 @@ summary(PreModel1.7)
 
 #### Post-Fire Models
 
+Same as above, but with surviving vegetation predictor as well.
 
 ```{r, eval = F}
-(PostNull <- glmer(Case ~ (1|AnimalID), family = "binomial", data = PostAll))                                                                            # 27762.54 *
+(PostNull <- glmer(Case ~ (1|AnimalID), family = "binomial", data = PostAll))                                                                            # 27762.54
 
-(PostFull <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26152.42 *
+(PostFull <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26152.42
 vif(PostFull)
 
 # stepping backward from full model
-(PostModel1.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26761.53 *
-(PostModel1.2 <- glmer(Case ~ veg + slope + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26191.72 *
-(PostModel1.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26160.10 *
-(PostModel1.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26213.70 *
-(PostModel1.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26262.57 *
-(PostModel1.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26163.90 *
-(PostModel1.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26568.19 *
+(PostModel1.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26761.53
+(PostModel1.2 <- glmer(Case ~ veg + slope + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26191.72
+(PostModel1.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26160.10
+(PostModel1.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26213.70
+(PostModel1.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26262.57
+(PostModel1.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + survveg.3 + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26163.90
+(PostModel1.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + Sex + (1|AnimalID), family = "binomial", data = PostAll)) # 26568.19
 (PostModel1.8 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26150.56 # the best of the bunch, with all variables except Sex
 
 # stepping backwards from PostModel1.8 - none improve on 1.8, still the best
-(PostFull2.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26759.72 *
-(PostFull2.2 <- glmer(Case ~ veg + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26189.99 *
-(PostFull2.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26158.23 *
-(PostFull2.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26211.79 *
-(PostFull2.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26260.66 *
-(PostFull2.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26162.02 *
-(PostFull2.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PostAll)) # 26566.35 *
+(PostFull2.1 <- glmer(Case ~ elevation + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26759.72
+(PostFull2.2 <- glmer(Case ~ veg + slope + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26189.99
+(PostFull2.3 <- glmer(Case ~ veg + elevation + east + north + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26158.23
+(PostFull2.4 <- glmer(Case ~ veg + elevation + slope + rugged + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26211.79
+(PostFull2.5 <- glmer(Case ~ veg + elevation + slope + east + north + water + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26260.66
+(PostFull2.6 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + survveg.3 + (1|AnimalID), family = "binomial", data = PostAll)) # 26162.02
+(PostFull2.7 <- glmer(Case ~ veg + elevation + slope + east + north + rugged + water + (1|AnimalID), family = "binomial", data = PostAll)) # 26566.35
 
 vif(PostModel1.8) # check VIF
 summary(PostModel1.8)
@@ -104,6 +106,8 @@ summary(PostModel1.8)
 
 
 ### Model validation
+
+Area-adjusted cross-validation of models, as described in manuscript.
 
 Read in raster stacks, masked to study areas, for validation. (NOTE: We did not include these raster layers here, but if you are interested in the data or in how we ran this validation, please get in touch.)
 ```{r}
