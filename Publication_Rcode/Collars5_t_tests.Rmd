@@ -1,0 +1,181 @@
+---
+title: "T-tests"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(openxlsx)
+library(tidyverse)
+
+`%notin%` <- negate(`%in%`)
+```
+
+In this script, we run statistical tests to compare differences in movement metrics among deer in and outside of the fire perimeter, and for deer before vs. after the fire.
+
+# Displacement During Fire
+
+Displacement distances were calculated in QGIS, based on MCP centroids as calculated in other scripts.
+```{r}
+# mean displacement during fire
+table <- read.csv(here::here("Publication_Data","Collars","Distances_During_Fire_QGIS.csv"))
+
+# split manually by whether or not deer were in fire, calculate mean and SD
+firedeer <- table %>% 
+  filter(TargetID %notin% c("A5b", "H4", "H5", "J5", "K4"))
+mean(firedeer$Distance)#avg = 1169.469, min = 42, max=4401
+sd(firedeer$Distance)
+
+nonfire <- table %>% 
+  filter(TargetID %in% c("A5b", "H4", "H5", "J5", "K4"))
+mean(nonfire$Distance) #253.57
+sd(nonfire$Distance)
+
+# not equal variances use welches t test
+var.test(firedeer$Distance, nonfire$Distance)
+
+t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE) #t = 2.9707, df = 12.636, p-value = 0.0111
+
+```
+
+# Movement Metrics
+
+The movement metric summary spreadsheet was created manually based on the results from the Collars1_Movement_Metrics.Rmd script.
+```{r}
+table <- read.xlsx(here::here("Publication_Data","Collars","summary_move_collars.xlsx"))
+
+doe_all <- filter(table, AnimalID %notin% c("H3", "P4"))
+doe_out <- filter(doe_all, AnimalID %in% c("A5b", "H4", "H5", "J5", "K4"))
+doe_in <- filter(doe_all, AnimalID %notin% c("A5b", "H4", "H5", "J5", "K4"))
+```
+
+## Turn Angle Correlation
+
+```{r}
+#t=-0.54805, df=10, p=0.5957
+t.test(doe$TAC_Paired_Pre,doe$TAC_Paired_Post, paired = T)
+
+mean(doe_in$TAC_Paired_Pre)
+sd(doe_in$TAC_Paired_Pre)
+mean(doe_in$TAC_Paired_Post)
+sd(doe_in$TAC_Paired_Post)
+
+#t=0.60713, df=4, p=0.5765 
+t.test(doe_out$TAC_Paired_Pre, doe_out$TAC_Paired_Post, paired=T)
+
+mean(doe_out$TAC_Paired_Pre)
+sd(doe_out$TAC_Paired_Pre)
+mean(doe_out$TAC_Paired_Post)
+sd(doe_out$TAC_Paired_Post)
+```
+
+
+## Mean Residence Time
+
+```{r}
+#t=-2.5105, df=10, p-value=0.03089
+t.test(doe_in$MeanRT_Paired_Pre, doe_in$MeanRT_Paired_Post, paired=T)
+
+mean(doe_out$MeanRT_Paired_Pre)
+sd(doe_out$MeanRT_Paired_Pre)
+mean(doe_out$MeanRT_Paired_Post)
+sd(doe_out$MeanRT_Paired_Post)
+
+#t=0.75316, df=4, p=0.4933
+t.test(doe_out$MeanRT_Paired_Pre, doe_out$MeanRT_Paired_Post, paired=T)
+
+mean(doe_out$MeanRT_Paired_Pre)
+sd(doe_out$MeanRT_Paired_Pre)
+mean(doe_out$MeanRT_Paired_Post)
+sd(doe_out$MeanRT_Paired_Post)
+```
+
+
+## Mean Time to Return
+
+```{r}
+#t=2.0221, df=10, p-value =0.07073
+t.test(doe_in$MeanT2r_Paired_Pre, doe_in$MeanT2R_Paired_Post, paired=T)
+
+mean(doe_in$MeanT2r_Paired_Pre)
+sd(doe_in$MeanT2r_Paired_Pre)
+mean(doe_in$MeanT2R_Paired_Post)
+sd(doe_in$MeanT2R_Paired_Post)
+
+#t=-0.3235, df=4, p=0.7625
+t.test(doe_out$MeanT2r_Paired_Pre, doe_out$MeanT2R_Paired_Post, paired=T)
+
+mean(doe_out$MeanT2r_Paired_Pre)
+sd(doe_out$MeanT2r_Paired_Pre)
+mean(doe_out$MeanT2R_Paired_Post)
+sd(doe_out$MeanT2R_Paired_Post)
+```
+
+
+## Daily Movement Distance
+
+```{r}
+#t = -5.6776, df = 10, p-value = 0.0002045
+t.test(doe_in$Mean_Dist_Day_Paired_Pre, doe_in$Mean_Dist_Day_Paired_Post, paired=T)
+
+mean(doe_in$Mean_Dist_Day_Paired_Pre)
+sd(doe_in$Mean_Dist_Day_Paired_Pre)
+mean(doe_in$Mean_Dist_Day_Paired_Post)
+sd(doe_in$Mean_Dist_Day_Paired_Post)
+
+#t=0.28159, df=4, p=0.7922
+t.test(doe_out$Mean_Dist_Day_Paired_Pre, doe_out$Mean_Dist_Day_Paired_Post, paired=T)
+
+mean(doe_out$Mean_Dist_Day_Paired_Pre)
+sd(doe_out$Mean_Dist_Day_Paired_Pre)
+mean(doe_out$Mean_Dist_Day_Paired_Post)
+sd(doe_out$Mean_Dist_Day_Paired_Post)
+
+```
+
+
+## Straightness
+
+```{r}
+#t = -2.0564, df = 10, p-value = 0.06679
+t.test(doe_in$Straightness_Paired_Pre, doe_in$Straightness_Paired_Post, paired=T)
+
+mean(doe_in$Straightness_Paired_Pre)
+sd(doe_in$Straightness_Paired_Pre)
+mean(doe_in$Straightness_Paired_Post)
+sd(doe_in$Straightness_Paired_Post)
+
+#t=0.19225, df=4, p=0.8569
+t.test(doe_out$Straightness_Paired_Pre, doe_out$Straightness_Paired_Post, paired=T)
+
+mean(doe_out$Straightness_Paired_Pre)
+sd(doe_out$Straightness_Paired_Pre)
+mean(doe_out$Straightness_Paired_Post)
+sd(doe_out$Straightness_Paired_Post)
+```
+
+## Home Range Size
+
+```{r}
+#t = -1.9658, df = 10, p-value = 0.07768
+t.test(doe_in$HR_Paired_Pre, doe_in$HR_Paired_Post, paired=T)
+
+mean(doe_in$HR_Paired_Pre)
+sd(doe_in$HR_Paired_Pre)
+mean(doe_in$HR_Paired_Post)
+sd(doe_in$HR_Paired_Post)
+
+#t= -1.4938, df=4, p = 0.2095
+t.test(doe_out$HR_Paired_Pre, doe_out$HR_Paired_Post, paired=T)
+
+mean(doe_out$HR_Paired_Pre)
+sd(doe_out$HR_Paired_Pre)
+mean(doe_out$HR_Paired_Post)
+sd(doe_out$HR_Paired_Post)
+```
+
