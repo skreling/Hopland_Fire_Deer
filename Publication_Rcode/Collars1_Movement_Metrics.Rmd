@@ -1,6 +1,8 @@
 ---
 title: "Movement Metrics"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -12,7 +14,7 @@ This script is meant to calculate different movement metrics for deer GPS points
 
 # Install Packages & Load Libraries
 ```{r}
-packages <- c('adehabitatHR','adehabitatLT','lubridate','plyr','rgeos','here','rgdal')
+packages <- c('adehabitatHR','adehabitatLT','lubridate','plyr','rgeos','here','rgdal','trajr','sp','tidyverse')
 
 install_load <- function(packages){
      for (p in packages) {
@@ -230,3 +232,37 @@ meters.hour <- sumdist/tot.hour
 meters.day <- meters.hour*24
 
 ```
+
+# Calculate straightness indices for bucks & does
+
+```{r}
+prefire_straightness <- list()
+for(i in unique(prefire$AnimalID)) {
+  deer_subset <- prefire %>% 
+    filter(AnimalID == i)
+  
+  trj <- TrajFromCoords(data.frame(x = deer_subset$Easting,
+                                   y = deer_subset$Northing,
+                                   times = deer_subset$Time))
+  
+  prefire_straightness[[i]] <- TrajStraightness(trj)
+}
+
+prefire_straightness
+
+
+postfire_straightness <- list()
+for(i in unique(postfire$AnimalID)) {
+  deer_subset <- postfire %>% 
+    filter(AnimalID == i)
+  
+  trj <- TrajFromCoords(data.frame(x = deer_subset$Easting,
+                                   y = deer_subset$Northing,
+                                   times = deer_subset$Time))
+  
+  postfire_straightness[[i]] <- TrajStraightness(trj)
+}
+
+postfire_straightness
+```
+
