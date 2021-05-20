@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(openxlsx)
 library(tidyverse)
+
+`%notin%` <- negate(`%in%`)
 ```
 
 # Displacement During Fire
@@ -20,9 +22,12 @@ library(tidyverse)
 table <- read.csv(here::here("Publication_Data","Collars","Distances_During_Fire_QGIS.csv"))
 
 # split manually by whether or not deer were in fire, calculate mean and SD
+
+# old code - incorrect, should have removed line 15: firedeer <- table[-c(2,7:8,14, 16),]
+
 firedeer <- table %>% 
-  filter(TargetID %in% c("A4", "D3b", "F2", "H2", "H3", "H5", "I5", "J1", "J2", "J3", "K1", "K2", "P4", "Q5"))
-mean(firedeer$Distance)#avg = 1155.114, min = 42, max=4401
+  filter(TargetID %notin% c("A5b", "H4", "H5", "J5", "K4"))
+mean(firedeer$Distance)#avg = 1169.469, min = 42, max=4401
 sd(firedeer$Distance)
 
 nonfire <- table %>% 
@@ -33,7 +38,7 @@ sd(nonfire$Distance)
 # not equal variances use welches t test
 var.test(firedeer$Distance, nonfire$Distance)
 
-t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE) #t = 2.901, df = 12.626, p-value = 0.01271
+t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE) #t = 2.9707, df = 12.636, p-value = 0.0111
 
 ```
 
