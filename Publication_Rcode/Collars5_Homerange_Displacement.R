@@ -16,7 +16,7 @@ library(adehabitatHR)
 
 distances <- read.csv(here::here("Publication_Data",'Collars','distances.csv'))
 (distances.same.deer <- distances[c(distances$TargetID==distances$InputID),])
-write.csv(distances.same.deer,'Distances_During_Fire_QGIS.csv')
+#write.csv(distances.same.deer,'Distances_During_Fire_QGIS.csv')
 
 
 
