@@ -52,7 +52,14 @@ The movement metric summary spreadsheet was created manually based on teh result
 ```{r}
 #Movement metrics
 table <- read.xlsx(here::here("Publication_Data","Collars","summary_move_collars.xlsx"))
-buck <- table[table$AnimalID == "P4" | table$AnimalID=="H3",]
+
+buck <- filter(table, AnimalID %in% c("H3", "P4"))
+
+doe_all <- filter(table, AnimalID %notin% c("H3", "P4"))
+doe_out <- filter(doe_all, AnimalID %in% c("A5b", "H4", "H5", "J5", "K4"))
+doe_in <- filter(doe_all, AnimalID %notin% c("A5b", "H4", "H5", "J5", "K4"))
+
+# old script:
 doe <- table[c(2,3,6:9,11,12,13,16:17),]
 doeOut <- table[c(1,4:5,10),]
 
@@ -69,6 +76,7 @@ mean(doeOut$TAC_Paired_Post)
 sd(doeOut$TAC_Paired_Post)
 
 #Mean RT
+
 #t=-2.5105, df=10, p-value=0.03089, md=-6.744238, sd=5.98567
 t.test(doe$MeanRT_Paired_Pre, doe$MeanRT_Paired_Post, paired=T)
 #t=0.87827, df=1, p=0.5412, md = 34.70273, sd = huge
@@ -97,6 +105,7 @@ sd(doeOut$MeanT2R_Paired_Post)
 
 
 #speed hr
+
 #t = -5.6776, df = 10, p-value = 0.0002045
 t.test(doe$Mean_Dist_Hour_Paired_Pre, doe$Mean_Dist_Hour_Paired_Post, paired=T)
 #t = -9.6911, df = 1, p-value = 0.06546
@@ -114,10 +123,13 @@ mean(doeOut$Mean_Dist_Day_Paired_Post)
 sd(doeOut$Mean_Dist_Day_Paired_Post)
 
 # straightness
-table <- read.xlsx(here::here("Publication_Data","Collars","straightness_index.xlsx"))
-buck <- table[c(17:18),]
-doe <- table[-c(17:18),]
+
+straightness <- read.xlsx(here::here("Publication_Data","Collars","straightness_index.xlsx"))
+
+straightness_buck <- filter(straightness, AnimalID %in% c("H3", "P4"))
+straightness_doe <- filter(straightness, AnimalID %notin% c("H3", "P4"))
+
 # All does
-t.test(doe$Pre, doe$Post, paired=T)
-t.test(buck$Pre, buck$Post, paired=T)
+t.test(straightness_doe$Pre, straightness_doe$Post, paired=T)
+t.test(straightness_buck$Pre, straightness_buck$Post, paired=T)
 ```
