@@ -158,3 +158,24 @@ sd(doe_out$Straightness_Paired_Pre)
 mean(doe_out$Straightness_Paired_Post)
 sd(doe_out$Straightness_Paired_Post)
 ```
+
+## Home Range Size
+
+```{r}
+#t = -1.9658, df = 10, p-value = 0.07768
+t.test(doe_in$HR_Paired_Pre, doe_in$HR_Paired_Post, paired=T)
+
+mean(doe_in$HR_Paired_Pre)
+sd(doe_in$HR_Paired_Pre)
+mean(doe_in$HR_Paired_Post)
+sd(doe_in$HR_Paired_Post)
+
+#t= -1.4938, df=4, p = 0.2095
+t.test(doe_out$HR_Paired_Pre, doe_out$HR_Paired_Post, paired=T)
+
+mean(doe_out$HR_Paired_Pre)
+sd(doe_out$HR_Paired_Pre)
+mean(doe_out$HR_Paired_Post)
+sd(doe_out$HR_Paired_Post)
+```
+
