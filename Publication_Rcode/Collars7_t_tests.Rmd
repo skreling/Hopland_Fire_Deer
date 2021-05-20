@@ -1,6 +1,8 @@
 ---
 title: "T-tests"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -9,22 +11,26 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(openxlsx)
+library(tidyverse)
 ```
 
 # Displacement During Fire
 ```{r}
-
-#Mean displacement during fire
+# mean displacement during fire
 table <- read.csv(here::here("Publication_Data","Collars","Distances_During_Fire_QGIS.csv"))
-firedeer <- table[-c(2,7:8,14, 16),]
+
+# split manually by whether or not deer were in fire, calculate mean and SD
+firedeer <- table %>% 
+  filter(TargetID %in% c("A4", "D3b", "F2", "H2", "H3", "H5", "I5", "J1", "J2", "J3", "K1", "K2", "P4", "Q5"))
 mean(firedeer$Distance)#avg = 1155.114, min = 42, max=4401
 sd(firedeer$Distance)
 
-nonfire <- table[c(2,7:8,13, 16),]
+nonfire <- table %>% 
+  filter(TargetID %in% c("A5b", "H4", "H5", "J5", "K4"))
 mean(nonfire$Distance) #253.57
 sd(nonfire$Distance)
 
-#not equal variances use welches t test
+# not equal variances use welches t test
 var.test(firedeer$Distance, nonfire$Distance)
 
 t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE) #t = 2.901, df = 12.626, p-value = 0.01271
@@ -95,8 +101,8 @@ mean(doeOut$Mean_Dist_Day_Paired_Pre)
 sd(doeOut$Mean_Dist_Day_Paired_Pre)
 mean(doeOut$Mean_Dist_Day_Paired_Post)
 sd(doeOut$Mean_Dist_Day_Paired_Post)
-
 ```
+
 # Straightness Index
 ```{r}
 
@@ -109,6 +115,7 @@ doe <- table[-c(17:18),]
 t.test(doe$Pre, doe$Post, paired=T)
 t.test(buck$Pre, buck$Post, paired=T)
 ```
+
 # BCI
 ```{r}
 #BCI t-tests
