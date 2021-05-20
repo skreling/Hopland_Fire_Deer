@@ -45,82 +45,103 @@ t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE) #t = 2.9707, df =
 
 # Movement Metrics
 
-The movement metric summary spreadsheet was created manually based on teh results from the Collars1_Movement_Metrics.Rmd script.
+The movement metric summary spreadsheet was created manually based on the results from the Collars1_Movement_Metrics.Rmd script.
 ```{r}
-#Movement metrics
 table <- read.xlsx(here::here("Publication_Data","Collars","summary_move_collars.xlsx"))
-
-buck <- filter(table, AnimalID %in% c("H3", "P4"))
 
 doe_all <- filter(table, AnimalID %notin% c("H3", "P4"))
 doe_out <- filter(doe_all, AnimalID %in% c("A5b", "H4", "H5", "J5", "K4"))
 doe_in <- filter(doe_all, AnimalID %notin% c("A5b", "H4", "H5", "J5", "K4"))
+```
 
-# old script:
-doe <- table[c(2,3,6:9,11,12,13,16:17),]
-doeOut <- table[c(1,4:5,10),]
+## Turn Angle Correlation
 
-#t=1.673, df=1, p=0.343, md=0.0226, sd=0.171
-t.test(buck$TAC_Paired_Pre, buck$TAC_Paired_Post, paired=T)
-#t=-0.54805, df=10, p=0.5957, md=-0.005, sd=0.0217
+```{r}
+#t=-0.54805, df=10, p=0.5957
 t.test(doe$TAC_Paired_Pre,doe$TAC_Paired_Post, paired = T)
 
+mean(doe_in$TAC_Paired_Pre)
+sd(doe_in$TAC_Paired_Pre)
+mean(doe_in$TAC_Paired_Post)
+sd(doe_in$TAC_Paired_Post)
 
+#t=0.60713, df=4, p=0.5765 
 t.test(doe_out$TAC_Paired_Pre, doe_out$TAC_Paired_Post, paired=T)
+
 mean(doe_out$TAC_Paired_Pre)
 sd(doe_out$TAC_Paired_Pre)
 mean(doe_out$TAC_Paired_Post)
 sd(doe_out$TAC_Paired_Post)
+```
 
-#Mean RT
 
-#t=-2.5105, df=10, p-value=0.03089, md=-6.744238, sd=5.98567
+## Mean Residence Time
+
+```{r}
+#t=-2.5105, df=10, p-value=0.03089
 t.test(doe_in$MeanRT_Paired_Pre, doe_in$MeanRT_Paired_Post, paired=T)
-#t=0.87827, df=1, p=0.5412, md = 34.70273, sd = huge
-t.test(buck$MeanRT_Paired_Pre, buck$MeanRT_Paired_Post, paired=T)
 
-
-t.test(doe_out$MeanRT_Paired_Pre, doe_out$MeanRT_Paired_Post, paired=T)
 mean(doe_out$MeanRT_Paired_Pre)
 sd(doe_out$MeanRT_Paired_Pre)
 mean(doe_out$MeanRT_Paired_Post)
 sd(doe_out$MeanRT_Paired_Post)
 
+#t=0.75316, df=4, p=0.4933
+t.test(doe_out$MeanRT_Paired_Pre, doe_out$MeanRT_Paired_Post, paired=T)
+
+mean(doe_out$MeanRT_Paired_Pre)
+sd(doe_out$MeanRT_Paired_Pre)
+mean(doe_out$MeanRT_Paired_Post)
+sd(doe_out$MeanRT_Paired_Post)
+```
 
 
-#Mean T2R
-#t=2.0221, df=10, p-value =0.07073, dif=8.593262,sd =9.468867
+## Mean Time to Return
+
+```{r}
+#t=2.0221, df=10, p-value =0.07073
 t.test(doe_in$MeanT2r_Paired_Pre, doe_in$MeanT2R_Paired_Post, paired=T)
-#t=-1.1269, df=1, p=0.462, md=-9.598701, sd=huge
-t.test(buck$MeanT2r_Paired_Pre, buck$MeanT2R_Paired_Post, paired=T)
 
+mean(doe_in$MeanT2r_Paired_Pre)
+sd(doe_in$MeanT2r_Paired_Pre)
+mean(doe_in$MeanT2R_Paired_Post)
+sd(doe_in$MeanT2R_Paired_Post)
+
+#t=-0.3235, df=4, p=0.7625
 t.test(doe_out$MeanT2r_Paired_Pre, doe_out$MeanT2R_Paired_Post, paired=T)
+
 mean(doe_out$MeanT2r_Paired_Pre)
 sd(doe_out$MeanT2r_Paired_Pre)
 mean(doe_out$MeanT2R_Paired_Post)
 sd(doe_out$MeanT2R_Paired_Post)
+```
 
 
-#speed hr
+## Daily Movement Distance
 
-#t = -5.6776, df = 10, p-value = 0.0002045
-t.test(doe_in$Mean_Dist_Hour_Paired_Pre, doe_in$Mean_Dist_Hour_Paired_Post, paired=T)
-#t = -9.6911, df = 1, p-value = 0.06546
-t.test(buck$Mean_Dist_Hour_Paired_Pre, buck$Mean_Dist_Hour_Paired_Post, paired=T)
-
-#dist day
+```{r}
 #t = -5.6776, df = 10, p-value = 0.0002045
 t.test(doe_in$Mean_Dist_Day_Paired_Pre, doe_in$Mean_Dist_Day_Paired_Post, paired=T)
 
+mean(doe_in$Mean_Dist_Day_Paired_Pre)
+sd(doe_in$Mean_Dist_Day_Paired_Pre)
+mean(doe_in$Mean_Dist_Day_Paired_Post)
+sd(doe_in$Mean_Dist_Day_Paired_Post)
 
+#t=0.28159, df=4, p=0.7922
 t.test(doe_out$Mean_Dist_Day_Paired_Pre, doe_out$Mean_Dist_Day_Paired_Post, paired=T)
-t.test(doe_out$MeanT2r_Paired_Pre, doe_out$MeanT2R_Paired_Post, paired=T)
+
 mean(doe_out$Mean_Dist_Day_Paired_Pre)
 sd(doe_out$Mean_Dist_Day_Paired_Pre)
 mean(doe_out$Mean_Dist_Day_Paired_Post)
 sd(doe_out$Mean_Dist_Day_Paired_Post)
 
-# straightness
+```
+
+
+## Straightness
+
+```{r}
 
 straightness <- read.xlsx(here::here("Publication_Data","Collars","straightness_index.xlsx"))
 
