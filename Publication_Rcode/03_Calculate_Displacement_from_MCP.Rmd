@@ -35,7 +35,7 @@ install_load(packages)
 ## Pre-fire
 ```{r}
 # This script was used to generate MCPs
-prefire <- read.csv(here::here("Publication_Data","Collars","deer-gps-prefire.csv")) #load in pre-fire dataframe
+prefire <- read.csv(here::here("Publication_Data","Raw","deer-gps-prefire.csv")) #load in pre-fire dataframe
 
 # Create SPDF
 prefire.spdf <- SpatialPointsDataFrame(coords=as.data.frame(cbind(prefire$Easting, prefire$Northing)), 
@@ -52,7 +52,7 @@ trueCentroidsPre$Time <- 'Pre'
 
 ## Post-fire
 ```{r}
-postfire <- read.csv(here::here("Publication_Data","Collars","deer-gps-postfire.csv")) #load in pre-fire dataframe
+postfire <- read.csv(here::here("Publication_Data","Raw","deer-gps-postfire.csv")) #load in pre-fire dataframe
 
 # Remove J3 'during fire' points from home range analysis (due to high displacement) 
 postfire <- postfire[-c(5715:5768),]
@@ -88,7 +88,6 @@ levels(all.centroids$AnimalID)[levels(all.centroids$AnimalID)=="A5"] ="A5b"
 levels(all.centroids$AnimalID)[levels(all.centroids$AnimalID)=="D3"] ="D3b"
 
 head(all.centroids)
-#write.csv(all.centroids, here::here('Publication_Data','Collars','MCP_Centroid.csv'), row.names = F)
 ```
 
 
@@ -129,10 +128,4 @@ t.test(distances_doein$Distance, distances_doeout$Distance, paired=F)
 
 # Calculate distance moved DURING fire
 
-Using the files 'far.csv' and 'MCP_Centroids.csv' (found in 'Collars' under 'Publication_Data') and created above, we created a distance matrix in QGIS. To do this, we filtered the MCP centroids to only pre-fire homerange centroids and used the 'distance matrix' function in base QGIS. 
-
-```{r}
-distances <- read.csv(here::here("Publication_Data",'Collars','distances.csv'))
-(distances.same.deer <- distances[c(distances$TargetID==distances$InputID),])
-#write.csv(distances.same.deer,'Distances_During_Fire_QGIS.csv')
-```
+Using the exported 'all.centroids' dataframe above and 'farthest-points.csv' (which represents the furthest point that an animal was found from the center of their home range during the fire, as calculated in QGIS), we created a distance matrix in QGIS using the 'distance matrix' function in base QGIS. This was then entered in the "Distance" column of the summary-movement-metrics.csv.

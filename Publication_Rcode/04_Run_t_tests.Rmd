@@ -10,7 +10,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-library(openxlsx)
 library(tidyverse)
 
 `%notin%` <- negate(`%in%`)
@@ -18,41 +17,39 @@ library(tidyverse)
 
 In this script, we run statistical tests to compare differences in movement metrics among deer in and outside of the fire perimeter, and for deer before vs. after the fire.
 
-# Displacement During Fire
+## Import data
 
-Displacement distances were calculated in QGIS, based on MCP centroids as calculated in other scripts.
+The movement metric summary spreadsheet was created manually based on the results from the 01_Calculate_Movement_Metrics.Rmd script.
 ```{r}
-# mean displacement during fire
-table <- read.csv(here::here("Publication_Data","Collars","Distances_During_Fire_QGIS.csv"))
+table <- read.csv(here::here("Publication_Data","Derived","summary-movement-metrics.csv"))
 
-# split manually by whether or not deer were in fire, calculate mean and SD
-firedeer <- table %>% 
-  filter(TargetID %notin% c("A5b", "H4", "H5", "J5", "K4"))
-mean(firedeer$Distance)#avg = 1169.469, min = 42, max=4401
-sd(firedeer$Distance)
-
-nonfire <- table %>% 
-  filter(TargetID %in% c("A5b", "H4", "H5", "J5", "K4"))
-mean(nonfire$Distance) #253.57
-sd(nonfire$Distance)
-
-# not equal variances use welches t test
-var.test(firedeer$Distance, nonfire$Distance)
-
-t.test(firedeer$Distance, nonfire$Distance, var.equal = FALSE) #t = 2.9707, df = 12.636, p-value = 0.0111
-
-```
-
-# Movement Metrics
-
-The movement metric summary spreadsheet was created manually based on the results from the Collars1_Movement_Metrics.Rmd script.
-```{r}
-table <- read.xlsx(here::here("Publication_Data","Collars","summary_move_collars.xlsx"))
-
+# take various subsets of these deer based on location of home range in vs. out of fire, and sex
 doe_all <- filter(table, AnimalID %notin% c("H3", "P4"))
 doe_out <- filter(doe_all, AnimalID %in% c("A5b", "H4", "H5", "J5", "K4"))
 doe_in <- filter(doe_all, AnimalID %notin% c("A5b", "H4", "H5", "J5", "K4"))
+
+deer_in <- filter(table, AnimalID %notin% c("A5b", "H4", "H5", "J5", "K4"))
+deer_out <- filter(table, AnimalID %in% c("A5b", "H4", "H5", "J5", "K4")) # same as doe_out (no bucks out)
 ```
+
+## Displacement During Fire
+
+Displacement distances were calculated in QGIS, based on MCP centroids as calculated in other scripts.
+```{r}
+# not equal variances use welches t test
+var.test(deer_in$Distance, deer_out$Distance)
+
+t.test(deer_in$Distance, deer_out$Distance, var.equal = FALSE) #t = 2.9707, df = 12.636, p-value = 0.0111
+
+mean(deer_in$Distance)#avg = 1169.469, min = 42, max=4401
+sd(deer_in$Distance)
+
+mean(deer_out$Distance) #253.57
+sd(deer_out$Distance)
+```
+
+
+Subsequent analyses done on does only, due to differences in buck metrics, and small sample sizes for bucks.
 
 ## Turn Angle Correlation
 
@@ -158,6 +155,7 @@ sd(doe_out$Straightness_Paired_Pre)
 mean(doe_out$Straightness_Paired_Post)
 sd(doe_out$Straightness_Paired_Post)
 ```
+
 
 ## Home Range Size
 

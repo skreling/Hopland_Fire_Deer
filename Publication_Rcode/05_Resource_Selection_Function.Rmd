@@ -30,7 +30,7 @@ Read in dataframe and filter by time period.
 This dataframe includes rows for used points and randomly-generated points, and associated values of landscape covariates as extracted from underlying raster layers. All data have already been centered and scaled for modeling.
 
 ```{r}
-all_data <- read.csv("Publication_Data/Collars/RSF_input.csv") 
+all_data <- read.csv("Publication_Data/Raw/rsf-input.csv") 
 
 PreAll <- filter(all_data, Period == "Pre") 
 PostAll <- filter(all_data, Period == "Post") 

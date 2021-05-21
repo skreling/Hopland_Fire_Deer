@@ -1,0 +1,98 @@
+---
+title: "Homerange_Isopleth_Generation"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load libraries
+```{r}
+packages <- c('sp','rgdal','rgeos','maptools','pander')
+
+install_load <- function(packages){
+     for (p in packages) {
+          if (p %in% rownames(installed.packages())) {
+               library(p, character.only=TRUE)
+          } else {
+               install.packages(p)
+               library(p,character.only = TRUE)
+          }
+     }
+}
+
+install_load(packages)
+
+# install tlocoh from source
+install.packages("tlocoh", dependencies=TRUE, repos=c("http://R-Forge.R-project.org", "http://cran.cnr.berkeley.edu"), type="source")
+```
+
+# Deer Pre Fire
+```{r}
+prefire <- read.csv(here::here("Publication_Data","Raw","deer-gps-prefire.csv"))
+
+# Create Spatial Points Dataframe from lat/longs and project in UTM 10
+prefire.sp.latlong<-(SpatialPoints(prefire[,c("Longitude", "Latitude")], proj4string=CRS("+proj=longlat +ellps=WGS84")))
+prefire.sp.utm <- spTransform(prefire.sp.latlong, CRS("+proj=utm +zone=10 +ellps=WGS84"))
+
+# Create coord matrix and rename to x and y for locoh
+prefire.mat.utm <- coordinates(prefire.sp.utm)
+head(prefire.mat.utm)
+colnames(prefire.mat.utm) <- c("x", "y")
+
+# Create time class
+prefire.localtime <- as.POSIXct(prefire$TimeStamp, tz="America/Los_Angeles")
+
+# Create LoCoH isopleths
+prefire.lxy <- xyt.lxy(xy=prefire.mat.utm, dt=prefire.localtime, tz= "America/Los_Angeles", id=prefire$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE) #create a LoCoH-xy object
+prefire.lxy <- lxy.nn.add(prefire.lxy, s=0, k=25) #identifies nearest neighbors for a LoCoH-xy object
+prefire.lhs <- lxy.lhs(prefire.lxy, k=15, s=0) # Creates a LoCoH-hullset object 
+prefire.lhs <- lhs.iso.add(prefire.lhs) #Adds isopleths toa  LoCoH-hullset object
+
+#Animal IDs to plot in the id argument for this dataset : A4, A5b, D3b, F2, H2, H3, H4, H5, I5, J1, J2, J3, J5, K1, K2, K4, P4, Q5
+plot(prefire.lhs, iso=T, id = "A5b", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
+
+
+# get areas from the isopleth summaries (we'll be taking the 95%)
+prefire.iso <- isopleths(prefire.lhs) #extract just the isopleths from our LoCoH-xy object
+A5b.post.iso <- prefire.iso[[1]]$area[[5]] #Extracts the 0.95 isopleth homerange area in m^2
+```
+
+
+# Deer Post Fire
+```{r}
+postfire <- read.csv(here::here("Publication_Data","Raw","deer-gps-postfire.csv"))
+
+# Special Case of J3 - Run separately, remove points that don't represent home range because J3 fled the fire front
+#J3 <- postfire[postfire$AnimalID=="J3",] # Remove J3's return from during fire move over Cow Mountain
+#J3 <- J3[rownames(J3)<5247,]
+
+# Create Spatial Points Dataframe from lat/longs and project in UTM 10
+postfire.sp.latlong<-(SpatialPoints(postfire[,c("Longitude", "Latitude")], proj4string=CRS("+proj=longlat +ellps=WGS84")))
+postfire.sp.utm <- spTransform(postfire.sp.latlong, CRS("+proj=utm +zone=10 +ellps=WGS84"))
+
+# Create coord matrix and rename to x and y for locoh
+postfire.mat.utm <- coordinates(postfire.sp.utm)
+head(postfire.mat.utm)
+colnames(postfire.mat.utm) <- c("x", "y")
+
+# Create time class
+postfire.localtime <- as.POSIXct(postfire$TimeStamp, tz="America/Los_Angeles")
+
+# Create LoCoH isopleths
+postfire.lxy <- xyt.lxy(xy=postfire.mat.utm, dt=postfire.localtime, tz= "America/Los_Angeles", id=postfire$AnimalID, proj4string=CRS("+proj=utm +zone=10 +ellps=WGS84"), dup.dt.check=FALSE) #create a LoCoH-xy object
+postfire.lxy <- lxy.nn.add(postfire.lxy, s=0, k=25) #identifies nearest neighbors for a LoCoH-xy object
+postfire.lhs <- lxy.lhs(postfire.lxy, k=15, s=0) # Creates a LoCoH-hullset object 
+postfire.lhs <- lhs.iso.add(postfire.lhs) #Adds isopleths toa  LoCoH-hullset object
+
+#Animal IDs to plot in the id argument for this dataset : A4, A5b, D3b, F2, H2, H3, H4, H5, I5, J1, J2, J5, K1, K2, K4, P4, Q5 - Note that this won't be the correct value for Doe J3, see below
+plot(postfire.lhs, iso=T, id = "A5b", k=15, allpts=T, cex.allpts=0.1, col.allpts="gray30", ufipt=F, figs.per.page=1)
+
+# get areas from the isopleth summaries (we'll be taking the 95%)
+postfire.iso <- isopleths(postfire.lhs)
+A5b.post.iso <- postfire.iso[[1]]$area[[5]]
+```
+

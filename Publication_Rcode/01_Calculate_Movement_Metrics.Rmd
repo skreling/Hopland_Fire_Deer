@@ -68,8 +68,8 @@ RTandT2R <- function(x, radius, maxt, units="hour", addinfo = F){
 # Import data
 
 ```{r}
-prefire <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefire.csv'))
-postfire <- read.csv(here::here('Publication_Data','Collars','deer-gps-postfire.csv'))
+prefire <- read.csv(here::here('Publication_Data','Raw','deer-gps-prefire.csv'))
+postfire <- read.csv(here::here('Publication_Data','Raw','deer-gps-postfire.csv'))
 
 # split for bucks and does
 prefiredoe <- prefire[prefire$Sex=="Doe",]
@@ -165,7 +165,6 @@ collars <- prefirebuck
 # drop unused factor levels to avoid ltraj error
 collars$AnimalID <- droplevels(collars$AnimalID)
 
-collars <- read.csv(here::here('Publication_Data','Collars','deer-gps-prefirebuck.csv')) #load in datafram
 collars$TimeStamp <- as.POSIXct((collars$TimeStamp), format = "%Y-%m-%d %H:%M:%S", origin = '1970-01-01', tz = "UTC") #Create date object from time stamp
 
 ## dt = number of minutes between successive steps (3600 seconds = 1 hour)
@@ -266,3 +265,5 @@ for(i in unique(postfire$AnimalID)) {
 postfire_straightness
 ```
 
+
+All movement metrics were entered manually into the file summary-movement-metrics.csv.
