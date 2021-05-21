@@ -36,8 +36,8 @@ bci.all <- read.csv(here::here("Publication_Data", "Raw", "body-condition-index.
 bci.all$time.since.fire.scaled <- scale(bci.all$time.since.fire, center=T, scale=T)
 
 # split into buck and doe data frames for modeling
-bci.doe <- bci.all[bci.all$Species=="Deer - Doe",]
-bci.buck <- bci.all[bci.all$Species=="Deer - Buck",]
+bci.doe <- bci.all[bci.all$Sex=="Doe",]
+bci.buck <- bci.all[bci.all$Sex=="Buck",]
 ```
 
 
