@@ -26,6 +26,8 @@ install_load <- function(packages){
 }
 
 install_load(packages)
+
+`%notin%` <- Negate(`%in%`)
 ```
 
 # Pre-fire Deer MCP and Centroids
@@ -87,4 +89,50 @@ levels(all.centroids$AnimalID)[levels(all.centroids$AnimalID)=="D3"] ="D3b"
 
 head(all.centroids)
 #write.csv(all.centroids, here::here('Publication_Data','Collars','MCP_Centroid.csv'), row.names = F)
+```
+
+
+# Calculate distances between pre and post fire centroids
+
+```{r}
+pre_centroids <- as.data.frame(trueCentroidsPre) %>% 
+  dplyr::select(-Time)
+post_centroids <- as.data.frame(trueCentroidsPost) %>% 
+  dplyr::select(-Time)
+
+#creates distance between centroid matrix
+distmatrix <- proxy::dist(pre_centroids, post_centroids, method="euclidean")
+
+#extract just diagnol from matrix
+distances <- diag(distmatrix) %>% 
+  as.data.frame() %>% 
+  dplyr::rename(distances, Distance = `.`) %>% 
+  rownames_to_column("AnimalID")
+
+# subset
+distances_doein <- distances %>% 
+  filter(AnimalID %notin% c("A5b", "H4", "H5", "J5", "K4", "H3", "P4")) # remove 2 bucks and 5 does outside
+
+distances_doeout <- distances %>% 
+  filter(AnimalID %in% c("A5b", "H4", "H5", "J5", "K4")) # take only 5 does outside fire
+
+mean(distances_doein$Distance) # 140.3179
+sd(distances_doein$Distance) # 67.97086
+
+mean(distances_doeout$Distance) # 119.2079
+sd(distances_doeout$Distance) # 108.3689
+
+t.test(distances_doein$Distance, distances_doeout$Distance, paired=F) 
+# t = 0.40119, df = 5.4883, p = 0.7034
+```
+
+
+# Calculate distance moved DURING fire
+
+Using the files 'far.csv' and 'MCP_Centroids.csv' (found in 'Collars' under 'Publication_Data') and created above, we created a distance matrix in QGIS. To do this, we filtered the MCP centroids to only pre-fire homerange centroids and used the 'distance matrix' function in base QGIS. 
+
+```{r}
+distances <- read.csv(here::here("Publication_Data",'Collars','distances.csv'))
+(distances.same.deer <- distances[c(distances$TargetID==distances$InputID),])
+#write.csv(distances.same.deer,'Distances_During_Fire_QGIS.csv')
 ```
