@@ -1,3 +1,6 @@
+
+#### DELETE THIS ENTIRE SCRIPT
+
 library(rgdal)
 library(rgeos)
 library(sp)
